@@ -1,40 +1,54 @@
 type Row = Record<PropertyKey, unknown>;
 
-type KeyName<T extends Row> = Extract<keyof T, string>;
+type KeyName<T = Row> = Extract<keyof T, string>;
 
-type KeyField<T extends Row> = KeyName<T> | {
+type KeyField<T = Row, R = Row> = KeyName<T> | {
   key: KeyName<T>;
-  as?: string;
+  as?: KeyName<R>;
   json?: boolean;
 }
 
-type GroupField = string | {
-  name: string;
+type GroupField<R = Row> = KeyName<R> | {
+  name: KeyName<R>;
   object?: boolean;
 }
 
-type Field<T extends Row> = KeyField<T> | [GroupField, Fields<T>];
+type Field<T = Row, R = Row> = KeyField<T, R> | [GroupField<R>, Fields<T, Row>];
 
-export type Fields<T extends Row = Row> = [KeyField<T>, ...Field<T>[]];
+type DefaultResult = { readonly __defaultResult: "defaultResult" };
+
+export type Fields<T = Row, R = DefaultResult> = R extends DefaultResult
+  ? [KeyField<Row, T>, ...Field<Row, T>[]]
+  : [KeyField<T, R>, ...Field<T, R>[]];
 
 type Result<T = unknown> = T[] | Record<PropertyKey, T>;
 
 
-export function objectify<T = unknown>(
-  data: Row[],
-  fields: Fields,
+export function objectify<T extends Row = Row, R = unknown>(
+  data: T[],
+  fields: Fields<T, R>,
   object: true,
-): Record<PropertyKey, T>;
-export function objectify<T = unknown>(
-  data: Row[],
-  fields: Fields,
+): Record<PropertyKey, R>;
+export function objectify<T extends Row = Row, R = unknown>(
+  data: T[],
+  fields: Fields<T, R>,
   object?: false,
-): T[];
-export function objectify<T = unknown>(
+): R[];
+export function objectify<R = unknown>(
   data: Row[],
-  fields: Fields,
+  fields: Fields<R>,
+  object: true,
+): Record<PropertyKey, R>;
+export function objectify<R = unknown>(
+  data: Row[],
+  fields: Fields<R>,
+  object?: false,
+): R[];
+export function objectify<R = unknown>(
+  data: Row[],
+  fields: Fields<R>,
   object = false,
-): Result<T> {
+): Result<R> {
   // If the fields is a single field or object is false, group the result in an array, otherwise group the result in an object
   const result: unknown[] | Record<PropertyKey, unknown> =
     fields.length === 1 || !object ? [] : {};
@@ -74,9 +88,9 @@ export function objectify<T = unknown>(
   }
 
   if (object) {
-    return result as Record<PropertyKey, T>;
+    return result as Record<PropertyKey, R>;
   }
-  return result as T[];
+  return result as R[];
 }
 
 // Groups rows by the current key, preserving first-seen order.

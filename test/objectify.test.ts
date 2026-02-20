@@ -1,22 +1,47 @@
 import { describe, expect, it } from "vitest";
 import { type Fields, objectify } from "../index";
 
+type Row = {
+	id: number;
+	code: string;
+	name: string;
+	rule_id: number | null;
+	formula?: string | null;
+	meter_id?: number;
+	area_id?: number | null;
+	meta: string | null;
+}
+
+type Result = {
+	area_id: number;
+	area_code: string;
+	name: string;
+	meta: { tier: number } | null;
+	areas
+	rules: {
+		rule_id: number;
+		rule: string | null;
+		meters: number[];
+		areas: number[];
+	}[];
+}
+
 // biome-ignore format: list
-const data = [
-  { id: 222, code: "bbb", name: "second", rule_id: 1, formula: "r1", meter_id: 5, area_id: 40, meta: '{"tier":2}' },
-  { id: 111, code: "aaa", name: "first", rule_id: 1, formula: "asd", meter_id: 8, area_id: 31, meta: '{"tier":1,"active":true}' },
-  { id: 222, code: "bbb", name: "second", rule_id: 2, formula: null, meter_id: 6, area_id: 41, meta: '{"tier":2}' },
-  { id: 111, code: "aaa", name: "first", rule_id: 2, formula: "sad", meter_id: 9, area_id: 95, meta: '{"tier":1,"active":true}' },
-  { id: 111, code: "aaa", name: "first", rule_id: 1, formula: "asd", meter_id: 10, area_id: 31, meta: '{"tier":1,"active":true}' },
-  { id: 222, code: "bbb", name: "second", rule_id: 2, formula: null, meter_id: 7, area_id: null, meta: null },
-  { id: 444, code: "ddd", name: "fourth", rule_id: 5, formula: "void", meter_id: 4, area_id: null, meta: null },
-  { id: 111, code: "aaa", name: "first", rule_id: 1, formula: "asd", meter_id: 10, area_id: 95, meta: '{"tier":1,"active":true}' },
-  { id: 111, code: "aaa", name: "first", rule_id: 2, formula: "sad", meter_id: 10, area_id: 95, meta: '{"tier":1,"active":true}' },
-  { id: 111, code: "aaa", name: "first", rule_id: 2, formula: "sad", meter_id: 12, area_id: null, meta: '{"tier":1,"active":true}' },
-  { id: 333, code: "ccc", name: "fail", rule_id: null, meta: null },
+const data: Row[] = [
+	{ id: 222, code: "bbb", name: "second", rule_id: 1, formula: "r1", meter_id: 5, area_id: 40, meta: '{"tier":2}' },
+	{ id: 111, code: "aaa", name: "first", rule_id: 1, formula: "asd", meter_id: 8, area_id: 31, meta: '{"tier":1,"active":true}' },
+	{ id: 222, code: "bbb", name: "second", rule_id: 2, formula: null, meter_id: 6, area_id: 41, meta: '{"tier":2}' },
+	{ id: 111, code: "aaa", name: "first", rule_id: 2, formula: "sad", meter_id: 9, area_id: 95, meta: '{"tier":1,"active":true}' },
+	{ id: 111, code: "aaa", name: "first", rule_id: 1, formula: "asd", meter_id: 10, area_id: 31, meta: '{"tier":1,"active":true}' },
+	{ id: 222, code: "bbb", name: "second", rule_id: 2, formula: null, meter_id: 7, area_id: null, meta: null },
+	{ id: 444, code: "ddd", name: "fourth", rule_id: 5, formula: "void", meter_id: 4, area_id: null, meta: null },
+	{ id: 111, code: "aaa", name: "first", rule_id: 1, formula: "asd", meter_id: 10, area_id: 95, meta: '{"tier":1,"active":true}' },
+	{ id: 111, code: "aaa", name: "first", rule_id: 2, formula: "sad", meter_id: 10, area_id: 95, meta: '{"tier":1,"active":true}' },
+	{ id: 111, code: "aaa", name: "first", rule_id: 2, formula: "sad", meter_id: 12, area_id: null, meta: '{"tier":1,"active":true}' },
+	{ id: 333, code: "ccc", name: "fail", rule_id: null, meta: null },
 ];
 
-const fields: Fields = [
+const fields: Fields<Result> = [
 	{ key: "id", as: "area_id" },
 	{ key: "code", as: "area_code" },
 	"name",
