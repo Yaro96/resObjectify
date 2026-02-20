@@ -1,0 +1,11 @@
+{
+  "name": "resobjectify",
+  "version": "1.0.0",
+  "description": "Parse an array of one dimensional objects to nested array/object",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Yaro96",
+  "license": "ISC"
+}
