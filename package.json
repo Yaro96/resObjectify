@@ -2,10 +2,24 @@
   "name": "resobjectify",
   "version": "1.1.0",
   "description": "Parse an array of one dimensional objects to nested array/object",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc -p tsconfig.json",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
+  "files": [
+    "dist"
+  ],
   "author": "Yaro96",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@biomejs/biome": "2.4.3",
+    "typescript": "5.9.3",
+    "vitest": "3.2.4"
+  }
 }
