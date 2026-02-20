@@ -19,6 +19,19 @@ export function objectify(data: Row[], fields: Fields, object = false) {
   return recursion(data, fields, object);
 }
 
+export function objectifyFast(data: Row[], fields: Fields, object = false) {
+  return recursion2(data, fields, object);
+}
+
+/**
+ *
+ * @param data - The data to objectify, each row is an object
+ * @param fields - The fields to objectify
+ * @param object - Whether to objectify the result in an object
+ * @param index - Starting row index
+ * @param parents - Parent keys
+ * @returns The objectified data
+ */
 function recursion(
   data: Row[],
   fields: Fields,
@@ -67,6 +80,64 @@ function recursion(
     }
   }
   return result;
+}
+
+function recursion2(
+  data: Row[],
+  fields: Fields,
+  object = false,
+): unknown[] | Record<PropertyKey, unknown> {
+  // If the fields is a single field or object is false, group the result in an array, otherwise group the result in an object
+  const result: unknown[] | Record<PropertyKey, unknown> =
+    fields.length === 1 || !object ? [] : {};
+
+  const [keyField, ...restFields] = fields;
+  const key = getKeyField(keyField);
+  const name = getFieldName(keyField);
+  const groups = groupByKey(data, key);
+
+  for (const [groupKey, rows] of groups) {
+    const row = rows[0];
+    const obj: Record<string, unknown> = {};
+
+    for (const field of fields) {
+      if (!Array.isArray(field)) {
+        obj[getFieldName(field)] = getFieldValue(row, field);
+      } else {
+        const [groupField, nestedFields] = field;
+        const nestedObject = isObject(groupField, object);
+        obj[getGroupName(groupField)] = recursion2(
+          rows,
+          nestedFields,
+          nestedObject,
+        );
+      }
+    }
+
+    if (obj[name] != null) {
+      if (Array.isArray(result)) {
+        result.push(restFields.length ? obj : obj[name]);
+      } else {
+        result[groupKey as PropertyKey] = obj;
+      }
+    }
+  }
+
+  return result;
+}
+
+function groupByKey(rows: Row[], key: string) {
+  const groups = new Map<unknown, Row[]>();
+  for (const row of rows) {
+    const value = row[key];
+    const group = groups.get(value);
+    if (group) {
+      group.push(row);
+    } else {
+      groups.set(value, [row]);
+    }
+  }
+  return groups;
 }
 
 function getKeyField(field: KeyField) {
