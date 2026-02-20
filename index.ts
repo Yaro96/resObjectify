@@ -30,13 +30,6 @@ function recursion(
 	index = 0,
 	parents: string[] = [],
 ) {
-	/*arr=[{id:111,code:'aaa',name:"prova", rule_id:1, formula:"asd", meter_id:8,area_id:31},
-  {id:111,code:'aaa',name:"prova", rule_id:2, formula:"asd", meter_id:8,area_id:95},
-  {id:111,code:'aaa',name:"prova", rule_id:1, formula:"asd", meter_id:10,area_id:31},
-  {id:111,code:'aaa',name:"prova", rule_id:1, formula:"asd", meter_id:10,area_id:95},
-  {id:111,code:'aaa',name:"prova", rule_id:2, formula:"asd", meter_id:10,area_id:95}]*/
-	//fields=[{key:"id", as:"area_id"},{key:"code", as:"area_code"},"name", ["rules",["rule_id",{key:"formula", as:"rule"},[{name:"meters",object:true},[{key:"meter_id", as:"id"}]],[{name:"areas",object:false},["area_id"]]]]]
-
 	// If the fields is a single field or object is false, group the result in an array, otherwise group the result in an object
 	const result: unknown[] | Record<string, unknown> =
 		fields.length === 1 || !object ? [] : {};
@@ -93,11 +86,15 @@ function getFieldValue(row: Row, field: KeyField): unknown {
 		return row[field];
 	}
 	const key = getKeyField(field);
-	return field.json
-		? row[key] === null
-			? null
-			: JSON.parse(row[key] as string)
-		: row[key];
+	if (field.json) {
+		try {
+			return JSON.parse(row[key] as string);
+		} catch (error) {
+			console.error(`"${row[key]}" is not a valid JSON`, error);
+			return null;
+		}
+	}
+	return row[key];
 }
 
 function getGroupName(field: GroupField) {
@@ -118,7 +115,7 @@ function isObject(field: GroupField, defaultValue: boolean) {
  * @param parentKeys - The parents to check
  * @returns True if the parents are the same, false otherwise
  */
-export function checkParents(
+function checkParents(
 	data: Row[],
 	currentIndex: number,
 	baseIndex: number,
