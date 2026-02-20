@@ -1,4 +1,4 @@
-type Row = Record<string, unknown>;
+type Row = Record<PropertyKey, unknown>;
 
 type KeyName<T extends Row> = Extract<keyof T, string>;
 
@@ -17,21 +17,24 @@ type Field<T extends Row> = KeyField<T> | [GroupField, Fields<T>];
 
 export type Fields<T extends Row = Row> = [KeyField<T>, ...Field<T>[]];
 
-export function objectify<T extends Row>(
-  data: T[],
-  fields: Fields<T>,
-  object?: boolean,
-): unknown[] | Record<PropertyKey, unknown>;
-export function objectify(
+type Result<T = unknown> = T[] | Record<PropertyKey, T>;
+
+
+export function objectify<T = unknown>(
   data: Row[],
   fields: Fields,
-  object?: boolean,
-): unknown[] | Record<PropertyKey, unknown>;
-export function objectify(
+  object: true,
+): Record<PropertyKey, T>;
+export function objectify<T = unknown>(
+  data: Row[],
+  fields: Fields,
+  object?: false,
+): T[];
+export function objectify<T = unknown>(
   data: Row[],
   fields: Fields,
   object = false,
-): unknown[] | Record<PropertyKey, unknown> {
+): Result<T> {
   // If the fields is a single field or object is false, group the result in an array, otherwise group the result in an object
   const result: unknown[] | Record<PropertyKey, unknown> =
     fields.length === 1 || !object ? [] : {};
@@ -54,11 +57,9 @@ export function objectify(
       } else { // If the field is an array, it is a group field, so we need to objectify the nested fields recursively
         const [groupField, nestedFields] = field;
         const nestedObject = isObject(groupField, object);
-        obj[getGroupName(groupField)] = objectify(
-          rows,
-          nestedFields,
-          nestedObject,
-        );
+        obj[getGroupName(groupField)] = nestedObject
+          ? objectify(rows, nestedFields, true)
+          : objectify(rows, nestedFields, false);
       }
     }
 
@@ -72,7 +73,10 @@ export function objectify(
     }
   }
 
-  return result;
+  if (object) {
+    return result as Record<PropertyKey, T>;
+  }
+  return result as T[];
 }
 
 // Groups rows by the current key, preserving first-seen order.
