@@ -1,7 +1,9 @@
 type Row = Record<string, unknown>;
 
-type KeyField = string | {
-  key: string;
+type KeyName<T extends Row> = Extract<keyof T, string>;
+
+type KeyField<T extends Row> = KeyName<T> | {
+  key: KeyName<T>;
   as?: string;
   json?: boolean;
 }
@@ -11,10 +13,20 @@ type GroupField = string | {
   object?: boolean;
 }
 
-type Field = KeyField | [GroupField, Fields];
+type Field<T extends Row> = KeyField<T> | [GroupField, Fields<T>];
 
-export type Fields = [KeyField, ...Field[]];
+export type Fields<T extends Row = Row> = [KeyField<T>, ...Field<T>[]];
 
+export function objectify<T extends Row>(
+  data: T[],
+  fields: Fields<T>,
+  object?: boolean,
+): unknown[] | Record<PropertyKey, unknown>;
+export function objectify(
+  data: Row[],
+  fields: Fields,
+  object?: boolean,
+): unknown[] | Record<PropertyKey, unknown>;
 export function objectify(
   data: Row[],
   fields: Fields,
@@ -64,8 +76,11 @@ export function objectify(
 }
 
 // Groups rows by the current key, preserving first-seen order.
-function groupByKey(rows: Row[], key: string): Map<unknown, Row[]> {
-  const groups = new Map<unknown, Row[]>();
+function groupByKey<T extends Row>(
+  rows: T[],
+  key: KeyName<T>,
+): Map<unknown, T[]> {
+  const groups = new Map<unknown, T[]>();
   for (const row of rows) {
     const keyValue = row[key];
     const group = groups.get(keyValue);
@@ -78,15 +93,15 @@ function groupByKey(rows: Row[], key: string): Map<unknown, Row[]> {
   return groups;
 }
 
-function getKeyField(field: KeyField) {
+function getKeyField<T extends Row>(field: KeyField<T>): KeyName<T> {
   return typeof field === "string" ? field : field.key;
 }
 
-function getFieldName(field: KeyField) {
+function getFieldName<T extends Row>(field: KeyField<T>) {
   return typeof field === "string" ? field : (field.as ?? field.key);
 }
 
-function getFieldValue(row: Row, field: KeyField): unknown {
+function getFieldValue<T extends Row>(row: T, field: KeyField<T>): unknown {
   if (typeof field === "string") {
     return row[field];
   }
