@@ -15,74 +15,7 @@ type Field = KeyField | [GroupField, Fields];
 
 export type Fields = [KeyField, ...Field[]];
 
-export function objectify(data: Row[], fields: Fields, object = false) {
-  return recursion(data, fields, object);
-}
-
-export function objectifyFast(data: Row[], fields: Fields, object = false) {
-  return recursion2(data, fields, object);
-}
-
-/**
- *
- * @param data - The data to objectify, each row is an object
- * @param fields - The fields to objectify
- * @param object - Whether to objectify the result in an object
- * @param index - Starting row index
- * @param parents - Parent keys
- * @returns The objectified data
- */
-function recursion(
-  data: Row[],
-  fields: Fields,
-  object = false,
-  index = 0,
-  parents: string[] = [],
-) {
-  // If the fields is a single field or object is false, group the result in an array, otherwise group the result in an object
-  const result: unknown[] | Record<string, unknown> =
-    fields.length === 1 || !object ? [] : {};
-  const added: unknown[] = [];
-
-  const [keyField, ...restFields] = fields;
-
-  for (let i = index; i < data.length; i++) {
-    const key = getKeyField(keyField);
-    const name = getFieldName(keyField);
-
-    if (!checkParents(data, i, index, parents) || added.includes(data[i][key]))
-      continue;
-
-    const obj: Record<string, unknown> = {};
-    for (const field of fields) {
-      if (!Array.isArray(field)) {
-        obj[getFieldName(field)] = getFieldValue(data[i], field);
-      } else {
-        const [groupField, nestedFields] = field;
-        const nestedObject = isObject(groupField, object);
-        obj[getGroupName(groupField)] = recursion(
-          data,
-          nestedFields,
-          nestedObject,
-          i,
-          [...parents, key],
-        );
-      }
-    }
-    added.push(data[i][key]);
-
-    if (obj[name] != null) {
-      if (Array.isArray(result)) {
-        result.push(restFields.length ? obj : obj[name]);
-      } else {
-        result[data[i][key] as string] = obj;
-      }
-    }
-  }
-  return result;
-}
-
-function recursion2(
+export function objectify(
   data: Row[],
   fields: Fields,
   object = false,
@@ -94,19 +27,22 @@ function recursion2(
   const [keyField, ...restFields] = fields;
   const key = getKeyField(keyField);
   const name = getFieldName(keyField);
+  // Pre-group by the current key so each recursion only sees its parent slice,
+  // which removes the need for parent checks or duplicate tracking.
   const groups = groupByKey(data, key);
 
-  for (const [groupKey, rows] of groups) {
+  for (const [keyValue, rows] of groups) {
     const row = rows[0];
     const obj: Record<string, unknown> = {};
 
     for (const field of fields) {
+      // If the field is not an array, it is a key field, so we can get the value from the row
       if (!Array.isArray(field)) {
         obj[getFieldName(field)] = getFieldValue(row, field);
-      } else {
+      } else { // If the field is an array, it is a group field, so we need to objectify the nested fields recursively
         const [groupField, nestedFields] = field;
         const nestedObject = isObject(groupField, object);
-        obj[getGroupName(groupField)] = recursion2(
+        obj[getGroupName(groupField)] = objectify(
           rows,
           nestedFields,
           nestedObject,
@@ -115,10 +51,11 @@ function recursion2(
     }
 
     if (obj[name] != null) {
+      // If the result is an array, we need to push the object to the array
       if (Array.isArray(result)) {
         result.push(restFields.length ? obj : obj[name]);
-      } else {
-        result[groupKey as PropertyKey] = obj;
+      } else { // If the result is an object, we need to set the object to the key
+        result[keyValue as PropertyKey] = obj;
       }
     }
   }
@@ -126,15 +63,16 @@ function recursion2(
   return result;
 }
 
-function groupByKey(rows: Row[], key: string) {
+// Groups rows by the current key, preserving first-seen order.
+function groupByKey(rows: Row[], key: string): Map<unknown, Row[]> {
   const groups = new Map<unknown, Row[]>();
   for (const row of rows) {
-    const value = row[key];
-    const group = groups.get(value);
+    const keyValue = row[key];
+    const group = groups.get(keyValue);
     if (group) {
       group.push(row);
     } else {
-      groups.set(value, [row]);
+      groups.set(keyValue, [row]);
     }
   }
   return groups;
@@ -172,24 +110,4 @@ function isObject(field: GroupField, defaultValue: boolean) {
   return typeof field === "string"
     ? defaultValue
     : (field.object ?? defaultValue);
-}
-
-/**
- * Checks if the parent keys of the current row are the same as the parent keys of the base row
- * @param data - The data to check
- * @param currentIndex - The current index
- * @param baseIndex - The base index
- * @param parentKeys - The parents to check
- * @returns True if the parents are the same, false otherwise
- */
-function checkParents(
-  data: Row[],
-  currentIndex: number,
-  baseIndex: number,
-  parentKeys: string[],
-) {
-  for (const parent of parentKeys) {
-    if (data[currentIndex][parent] !== data[baseIndex][parent]) return false;
-  }
-  return true;
 }
