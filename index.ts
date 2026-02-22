@@ -2,36 +2,42 @@ type Row = Record<PropertyKey, unknown>;
 
 type KeyName<T = Row> = Extract<keyof T, string>;
 
-type KeyField<T = Row, R = Row> = KeyName<T> | {
+type ExtractKeys<T> = T extends readonly (infer U)[]
+  ? ExtractKeys<U>
+  : T extends object
+  ? {
+    [K in keyof T & string]:
+    | K
+    | (T[K] extends object ? `${K}.${ExtractKeys<T[K]>}` : K)
+  }[keyof T & string]
+  : never;
+
+type KeyField<R = Row, T = Row> = KeyName<T> | {
   key: KeyName<T>;
-  as?: KeyName<R>;
+  as?: ExtractKeys<R>;
   json?: boolean;
 }
 
-type GroupField<R = Row> = KeyName<R> | {
-  name: KeyName<R>;
+type GroupField<R = Row> = ExtractKeys<R> | {
+  name: ExtractKeys<R>;
   object?: boolean;
 }
 
-type Field<T = Row, R = Row> = KeyField<T, R> | [GroupField<R>, Fields<T, Row>];
+type Field<R = Row, T = Row> = KeyField<R, T> | [GroupField<R>, Fields<R, T>];
 
-type DefaultResult = { readonly __defaultResult: "defaultResult" };
-
-export type Fields<T = Row, R = DefaultResult> = R extends DefaultResult
-  ? [KeyField<Row, T>, ...Field<Row, T>[]]
-  : [KeyField<T, R>, ...Field<T, R>[]];
+export type Fields<R = Row, T = Row> = [KeyField<R, T>, ...Field<R, T>[]]
 
 type Result<T = unknown> = T[] | Record<PropertyKey, T>;
 
 
-export function objectify<T extends Row = Row, R = unknown>(
+export function objectify<R = unknown, T extends Row = Row>(
   data: T[],
-  fields: Fields<T, R>,
+  fields: Fields<R, T>,
   object: true,
 ): Record<PropertyKey, R>;
-export function objectify<T extends Row = Row, R = unknown>(
+export function objectify<R = unknown, T extends Row = Row>(
   data: T[],
-  fields: Fields<T, R>,
+  fields: Fields<R, T>,
   object?: false,
 ): R[];
 export function objectify<R = unknown>(
@@ -112,7 +118,7 @@ function groupByKey<T extends Row>(
 }
 
 function getKeyField<T extends Row>(field: KeyField<T>): KeyName<T> {
-  return typeof field === "string" ? field : field.key;
+  return (typeof field === "string" ? field : field.key) as KeyName<T>;
 }
 
 function getFieldName<T extends Row>(field: KeyField<T>) {
