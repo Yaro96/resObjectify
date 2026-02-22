@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { type Fields, type NestedKeys, objectify } from "../index";
+import { type Fields, objectify } from "../index";
 
-type Row = {
+
+type Input = {
 	id: number;
 	code: string;
 	name: string;
@@ -12,12 +13,11 @@ type Row = {
 	meta: string | null;
 }
 
-type Result = {
+type ResultArray = {
 	area_id: number;
 	area_code: string;
 	name: string;
 	meta: { tier: number } | null;
-	areas: number[];
 	rules: {
 		rule_id: number;
 		rule: string | null;
@@ -26,8 +26,20 @@ type Result = {
 	}[];
 }
 
+type ResultObject = Record<PropertyKey, {
+	area_id: number;
+	area_code: string;
+	name: string;
+	meta: { tier: number } | null;
+	rules: Record<PropertyKey, {
+		rule_id: number;
+		rule: string | null;
+		meters: number[]; areas: number[];
+	}>;
+}>;
+
 // biome-ignore format: list
-const data: Row[] = [
+const data: Input[] = [
 	{ id: 222, code: "bbb", name: "second", rule_id: 1, formula: "r1", meter_id: 5, area_id: 40, meta: '{"tier":2}' },
 	{ id: 111, code: "aaa", name: "first", rule_id: 1, formula: "asd", meter_id: 8, area_id: 31, meta: '{"tier":1,"active":true}' },
 	{ id: 222, code: "bbb", name: "second", rule_id: 2, formula: null, meter_id: 6, area_id: 41, meta: '{"tier":2}' },
@@ -42,10 +54,8 @@ const data: Row[] = [
 ];
 
 
-type asd = NestedKeys<Result>;
 
-
-const fields: Fields<Result,Row> = [
+const fields: Fields<ResultArray | ResultObject, Input> = [
 	{ key: "id", as: "" },
 	{ key: "code", as: "area_code" },
 	"name",
@@ -63,7 +73,7 @@ const fields: Fields<Result,Row> = [
 
 describe("objectify", () => {
 	it("builds nested arrays for rules, meters, and areas", () => {
-		expect(objectify(data, fields)).toEqual([
+		expect(objectify<ResultArray>(data, fields)).toEqual([
 			{
 				area_id: 222,
 				area_code: "bbb",
@@ -102,7 +112,7 @@ describe("objectify", () => {
 	});
 
 	it("returns an object map when object=true", () => {
-		expect(objectify(data, fields, true)).toEqual({
+		expect(objectify<ResultObject>(data, fields, true)).toEqual({
 			222: {
 				area_id: 222,
 				area_code: "bbb",
@@ -148,7 +158,7 @@ describe("objectify", () => {
 			{ id: 2, payload: null },
 		];
 
-		const fields: Fields = ["id", { key: "payload", json: true }];
+		const fields = ["id", { key: "payload", json: true }];
 
 		expect(objectify(arr, fields)).toEqual([
 			{ id: 1, payload: { value: 42 } },

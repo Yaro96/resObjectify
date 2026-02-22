@@ -1,59 +1,40 @@
-type Row = Record<PropertyKey, unknown>;
+import type {
+  Fields,
+  GroupField,
+  KeyField,
+  KeyName,
+  Prettify,
+  Result,
+  Row,
+} from "./types";
 
-type KeyName<T = Row> = Extract<keyof T, string>;
-
-export type NestedKeys<T> = T extends readonly (infer U)[]
-  ? NestedKeys<U>
-  : T extends object
-  ? {
-    [K in Extract<keyof T, string>]-?: K | NestedKeys<T[K]> | (string & {})
-  }[Extract<keyof T, string>]
-  : never;
-
-
-type KeyField<R = Row, T = Row> = KeyName<T> | {
-  key: KeyName<T>;
-  as?: NestedKeys<R>;
-  json?: boolean;
-}
-
-type GroupField<R = Row> = NestedKeys<R> | {
-  name: NestedKeys<R>;
-  object?: boolean;
-}
-
-type Field<R = Row, T = Row> = KeyField<R, T> | [GroupField<R>, Fields<R, T>];
-
-export type Fields<R = Row, T = Row> = [KeyField<R, T>, ...Field<R, T>[]]
-
-type Result<T = unknown> = T[] | Record<PropertyKey, T>;
-
+export type { Fields } from "./types";
 
 export function objectify<R = unknown, T extends Row = Row>(
   data: T[],
   fields: Fields<R, T>,
   object: true,
-): Record<PropertyKey, R>;
+): Record<PropertyKey, Prettify<R>>;
 export function objectify<R = unknown, T extends Row = Row>(
   data: T[],
   fields: Fields<R, T>,
   object?: false,
-): R[];
+): Prettify<R>[];
 export function objectify<R = unknown>(
   data: Row[],
   fields: Fields<R>,
   object: true,
-): Record<PropertyKey, R>;
+): Record<PropertyKey, Prettify<R>>;
 export function objectify<R = unknown>(
   data: Row[],
   fields: Fields<R>,
   object?: false,
-): R[];
+): Prettify<R>[];
 export function objectify<R = unknown>(
   data: Row[],
   fields: Fields<R>,
   object = false,
-): Result<R> {
+): Result<Prettify<R>> {
   // If the fields is a single field or object is false, group the result in an array, otherwise group the result in an object
   const result: unknown[] | Record<PropertyKey, unknown> =
     fields.length === 1 || !object ? [] : {};
@@ -93,9 +74,9 @@ export function objectify<R = unknown>(
   }
 
   if (object) {
-    return result as Record<PropertyKey, R>;
+    return result as Record<PropertyKey, Prettify<R>>;
   }
-  return result as R[];
+  return result as Prettify<R>[];
 }
 
 // Groups rows by the current key, preserving first-seen order.
