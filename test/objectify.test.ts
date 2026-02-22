@@ -34,7 +34,8 @@ type ResultObject = Record<PropertyKey, {
 	rules: Record<PropertyKey, {
 		rule_id: number;
 		rule: string | null;
-		meters: number[]; areas: number[];
+		meters: number[];
+		areas: number[];
 	}>;
 }>;
 
@@ -55,8 +56,8 @@ const data: Input[] = [
 
 
 
-const fields: Fields<ResultArray | ResultObject, Input> = [
-	{ key: "id", as: "" },
+const fields: Fields<ResultObject | ResultArray, Input> = [
+	{ key: "id", as: "area_id" },
 	{ key: "code", as: "area_code" },
 	"name",
 	{ key: "meta", json: true },

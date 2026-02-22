@@ -2,13 +2,28 @@ export type Row = Record<PropertyKey, unknown>;
 
 export type KeyName<T = Row> = Extract<keyof T, string>;
 
-export type NestedKeys<T> = T extends readonly (infer U)[]
-  ? NestedKeys<U>
-  : T extends object
-    ? {
-        [K in Extract<keyof T, string>]-?: K | NestedKeys<T[K]> | (string & {})
-      }[Extract<keyof T, string>]
-    : never;
+
+type IndexValue<T> = string extends keyof T
+  ? T[string]
+  : number extends keyof T
+    ? T[number]
+    : symbol extends keyof T
+      ? T[symbol]
+      : never;
+
+type Prev = [never, 0, 1, 2, 3, 4, 5];
+
+export type NestedKeys<T, D extends number = 5> = D extends 0
+  ? never
+  : T extends readonly (infer U)[]
+    ? NestedKeys<U, Prev[D]>
+    : T extends object
+      ? string extends keyof T
+        ? NestedKeys<IndexValue<T>, Prev[D]>
+        : {
+            [K in Extract<keyof T, string>]-?: K | NestedKeys<T[K], Prev[D]> | (string & {})
+          }[Extract<keyof T, string>]
+      : never;
 
 export type Prettify<T> = {
   [K in keyof T]: T[K];
