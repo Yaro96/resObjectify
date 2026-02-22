@@ -159,7 +159,7 @@ describe("objectify", () => {
 			{ id: 2, payload: null },
 		];
 
-		const fields = ["id", { key: "payload", json: true }];
+		const fields: Fields = ["id", { key: "payload", json: true }];
 
 		expect(objectify(arr, fields)).toEqual([
 			{ id: 1, payload: { value: 42 } },
