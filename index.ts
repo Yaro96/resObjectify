@@ -2,24 +2,23 @@ type Row = Record<PropertyKey, unknown>;
 
 type KeyName<T = Row> = Extract<keyof T, string>;
 
-type ExtractKeys<T> = T extends readonly (infer U)[]
-  ? ExtractKeys<U>
+export type NestedKeys<T> = T extends readonly (infer U)[]
+  ? NestedKeys<U>
   : T extends object
   ? {
-    [K in keyof T & string]:
-    | K
-    | (T[K] extends object ? `${K}.${ExtractKeys<T[K]>}` : K)
-  }[keyof T & string]
+    [K in Extract<keyof T, string>]-?: K | NestedKeys<T[K]> | (string & {})
+  }[Extract<keyof T, string>]
   : never;
+
 
 type KeyField<R = Row, T = Row> = KeyName<T> | {
   key: KeyName<T>;
-  as?: ExtractKeys<R>;
+  as?: NestedKeys<R>;
   json?: boolean;
 }
 
-type GroupField<R = Row> = ExtractKeys<R> | {
-  name: ExtractKeys<R>;
+type GroupField<R = Row> = NestedKeys<R> | {
+  name: NestedKeys<R>;
   object?: boolean;
 }
 

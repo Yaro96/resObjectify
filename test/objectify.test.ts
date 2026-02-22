@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Fields, objectify } from "../index";
+import { type Fields, type NestedKeys, objectify } from "../index";
 
 type Row = {
 	id: number;
@@ -17,7 +17,7 @@ type Result = {
 	area_code: string;
 	name: string;
 	meta: { tier: number } | null;
-	areas
+	areas: number[];
 	rules: {
 		rule_id: number;
 		rule: string | null;
@@ -41,8 +41,12 @@ const data: Row[] = [
 	{ id: 333, code: "ccc", name: "fail", rule_id: null, meta: null },
 ];
 
-const fields: Fields<Result> = [
-	{ key: "id", as: "area_id" },
+
+type asd = NestedKeys<Result>;
+
+
+const fields: Fields<Result,Row> = [
+	{ key: "id", as: "" },
 	{ key: "code", as: "area_code" },
 	"name",
 	{ key: "meta", json: true },
