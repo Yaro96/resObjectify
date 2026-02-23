@@ -12,7 +12,6 @@ import type {
   Row,
   KeyFieldOptions,
   GroupFieldOptions,
-  DefaultString,
 } from "./types";
 
 export type { Fields, FieldsBuilder } from "./types";

@@ -56,7 +56,7 @@ const data: Input[] = [
 
 
 
-const fields: Fields<ResultObject, Input> = [
+const fields: Fields<ResultArray, Input> = [
 	{ key: "id", as: "area_id" },
 	{ key: "code", as: "area_code" },
 	"name",
@@ -66,7 +66,7 @@ const fields: Fields<ResultObject, Input> = [
 		[
 			"rule_id",
 			{ key: "formula", as: "rule" },
-			[{ name: "meters", object: true }, [{ key: "meter_id", as: "id" }]],
+			[{ name: "meters", object: true }, ["meter_id"]],
 			[{ name: "areas", object: false }, ["area_id"]],
 		],
 	],
@@ -170,7 +170,7 @@ describe("objectify", () => {
 
 describe("fieldsBuilder", () => {
 	it("builds fields with plain keys", () => {
-		const fields2 = fieldsBuilder<ResultArray, Input>()
+		const fields2 = fieldsBuilder<ResultObject, Input>()
 			.field("id", "area_id")
 			.field("code", "area_code")
 			.field("name")
@@ -179,7 +179,7 @@ describe("fieldsBuilder", () => {
 				.field("rule_id")
 				.field("formula", "rule")
 				.group("meters", { object: true }, (g) => g
-					.field("meter_id", "id")
+					.field("meter_id")
 				)
 				.group("areas", { object: false }, (g) => g
 					.field("area_id")
@@ -200,7 +200,7 @@ describe("fieldsBuilder", () => {
 				.field("rule_id")
 				.field("formula", "rule")
 				.group("meters", { object: true }, (g) => g
-					.field("meter_id", "id")
+					.field("meter_id")
 				)
 				.group("areas", { object: false }, (g) => g
 					.field("area_id")
@@ -211,24 +211,24 @@ describe("fieldsBuilder", () => {
 		expect(fields2).toEqual(fields);
 	});
 
-	// it("builds fields with object parameters", () => {
-	// 	const fields2 = fieldsBuilder()
-	// 		.field({ key: "id", as: "area_id" })
-	// 		.field("code", "area_code")
-	// 		.field("name")
-	// 		.field("meta", { json: true })
-	// 		.group("rules", (g) => g
-	// 			.field("rule_id")
-	// 			.field("formula", "rule")
-	// 			.group("meters", { object: true }, (g) => g
-	// 				.field("meter_id", "id")
-	// 			)
-	// 			.group("areas", { object: false }, (g) => g
-	// 				.field("area_id")
-	// 			)
-	// 		)
-	// 		.build();
+	it("builds fields with object parameters", () => {
+		const fields2 = fieldsBuilder()
+			.field({ key: "id", as: "area_id" })
+			.field("code", "area_code")
+			.field("name")
+			.field("meta", { json: true })
+			.group("rules", (g) => g
+				.field("rule_id")
+				.field("formula", "rule")
+				.group("meters", { object: true }, (g) => g
+					.field("meter_id")
+				)
+				.group("areas", { object: false }, (g) => g
+					.field("area_id")
+				)
+			)
+			.build();
 
-	// 	expect(fields2).toEqual(fields);
-	// });
+		expect(fields2).toEqual(fields);
+	});
 });

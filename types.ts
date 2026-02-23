@@ -21,32 +21,34 @@ type HasIndexSignature<T> =
         ? true
         : false;
 
-export type LeafKeys<T> = [T] extends [Primitives]
+type LeafKeysImpl<T> = [T] extends [Primitives]
   ? never
   : [T] extends [Array]
-    ? LeafKeys<ArrayElement<T>>
+    ? LeafKeysImpl<ArrayElement<T>>
     : [T] extends [Object]
       ? {
           [K in keyof T]-?: T[K] extends Primitives
-            ? (StringKey<K> | DefaultString)
-            : LeafKeys<ChildPart<T[K]>>;
+            ? StringKey<K>
+            : LeafKeysImpl<ChildPart<T[K]>>;
         }[keyof T]
       : never;
 
-
-export type BranchKeys<T> = [T] extends [Primitives]
+type BranchKeysImpl<T> = [T] extends [Primitives]
   ? never
   : [T] extends [Array]
-    ? BranchKeys<ArrayElement<T>>
+    ? BranchKeysImpl<ArrayElement<T>>
     : [T] extends [Object]
       ? HasIndexSignature<T> extends true
-        ? BranchKeys<ChildPart<T[keyof T]>>
+        ? BranchKeysImpl<ChildPart<T[keyof T]>>
         : {
             [K in keyof T]-?: T[K] extends Primitives
               ? never
-              : StringKey<K> | BranchKeys<ChildPart<T[K]>> | DefaultString;
+              : StringKey<K> | BranchKeysImpl<ChildPart<T[K]>>;
           }[keyof T]
       : never;
+
+export type LeafKeys<T> = [LeafKeysImpl<T>] extends [never] ? DefaultString : LeafKeysImpl<T>;
+export type BranchKeys<T> = [BranchKeysImpl<T>] extends [never] ? DefaultString : BranchKeysImpl<T>;
 
 
 export type Prettify<T> = {
