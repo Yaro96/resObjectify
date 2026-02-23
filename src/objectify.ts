@@ -1,5 +1,11 @@
 import type { Fields, KeyField, KeyName, Prettify, Result, Row, SimpleGroupField } from "../types";
 
+/**
+ * Transforms flat rows into nested objects/arrays based on a field definition.
+ *
+ * When `object` is `true`, top-level output is keyed by the first field value.
+ * Otherwise the output is an array.
+ */
 export function objectify<R = unknown, T = Row>(
   data: T[],
   fields: Fields<R, T>,
@@ -72,7 +78,9 @@ export function objectify<R = unknown>(
   return result as Prettify<R>[];
 }
 
-// Groups rows by the current key, preserving first-seen order.
+/**
+ * Groups rows by the provided key while preserving insertion order.
+ */
 function groupByKey<T extends Row>(rows: T[], key: KeyName<T>): Map<unknown, T[]> {
   const groups = new Map<unknown, T[]>();
   for (const row of rows) {
@@ -87,14 +95,23 @@ function groupByKey<T extends Row>(rows: T[], key: KeyName<T>): Map<unknown, T[]
   return groups;
 }
 
+/**
+ * Resolves the source key from either shorthand or object field syntax.
+ */
 function getKeyField<R, T extends Row>(field: KeyField<R, T>): KeyName<T> {
   return (typeof field === "string" ? field : field.key) as KeyName<T>;
 }
 
+/**
+ * Resolves the output property name for a key field.
+ */
 function getFieldName<R, T extends Row>(field: KeyField<R, T>): PropertyKey {
   return (typeof field === "string" ? field : (field.as ?? field.key)) as PropertyKey;
 }
 
+/**
+ * Reads a row value and optionally parses it as JSON.
+ */
 function getFieldValue<R, T extends Row>(row: T, field: KeyField<R, T>): unknown {
   if (typeof field === "string") {
     return row[field];
@@ -111,6 +128,9 @@ function getFieldValue<R, T extends Row>(row: T, field: KeyField<R, T>): unknown
   return row[key];
 }
 
+/**
+ * Resolves the output name for a group field definition.
+ */
 function getGroupName(field: SimpleGroupField): PropertyKey {
   if (typeof field === "string" || typeof field === "number" || typeof field === "symbol") {
     return field;
@@ -118,6 +138,9 @@ function getGroupName(field: SimpleGroupField): PropertyKey {
   return field.name;
 }
 
+/**
+ * Resolves whether a group should be emitted as object or array.
+ */
 function isObject(field: SimpleGroupField, defaultValue: boolean) {
   if (typeof field !== "object" || field == null) {
     return defaultValue;

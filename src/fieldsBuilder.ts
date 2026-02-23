@@ -11,6 +11,9 @@ import type {
   SimpleGroupField,
 } from "../types";
 
+/**
+ * Creates a fluent builder for composing `Fields` definitions.
+ */
 export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
   const fields: Field<R, T>[] = [];
 
@@ -24,7 +27,7 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
     const resolvedAs = isOptions ? undefined : (asOrOptions as PropertyKey);
     const resolvedOptions = isOptions ? (asOrOptions as KeyFieldOptions) : options;
 
-    //Create the new field entry
+    // Normalize overload inputs into a single key-field shape.
     const entry = newField<R, T>(field, resolvedAs, resolvedOptions);
     fields.push(entry);
     return api;
@@ -57,6 +60,9 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
   return api;
 }
 
+/**
+ * Normalizes key field shorthand into object form when needed.
+ */
 function newField<R = Row, T = Row>(
   key: KeyField<R, T>,
   as?: PropertyKey,
@@ -76,6 +82,9 @@ function newField<R = Row, T = Row>(
   return entry;
 }
 
+/**
+ * Normalizes group shorthand into object form when options are provided.
+ */
 function newGroup(groupField: SimpleGroupField, options?: GroupFieldOptions): SimpleGroupField {
   if (!options) {
     return groupField;
