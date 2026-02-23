@@ -159,12 +159,25 @@ describe("objectify", () => {
   });
 
   it("parses json fields when json=true", () => {
-    const arr = [
+
+	type InputJson = {
+		id: number;
+		payload: string | null;
+	};
+
+    const arr: InputJson[] = [
       { id: 1, payload: '{"value":42}' },
       { id: 2, payload: null },
     ];
 
-    const fields: Fields = ["id", { key: "payload", json: true }];
+	type ResultJson = {
+		id: number;
+		payload: {
+			 value: number;
+		} | null;
+	};
+
+    const fields: Fields<ResultJson,InputJson> = ["id", { key: "payload", json: true }];
 
     expect(objectify(arr, fields)).toEqual([
       { id: 1, payload: { value: 42 } },
