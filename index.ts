@@ -1,4 +1,8 @@
 import type {
+  Field,
+  FieldsBuilder,
+  GroupField,
+  LeafKeys,
   SimpleGroupField,
   Fields,
   KeyField,
@@ -6,9 +10,93 @@ import type {
   Prettify,
   Result,
   Row,
+  KeyFieldOptions,
+  GroupFieldOptions,
 } from "./types";
 
-export type { Fields } from "./types";
+export type { Fields, FieldsBuilder } from "./types";
+
+export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
+  const fields: Field<R, T>[] = [];
+
+  function newField(
+    key: KeyField<R, T>,
+    as?: PropertyKey,
+    options?: KeyFieldOptions,
+  ): KeyField<R, T> {
+    if (!as && !options) {
+      return key;
+    }
+
+    let entry: KeyField<R, T> = typeof key === "object" ? key : { key };
+    if (as !== undefined) {
+      entry = { ...entry, as: as as LeafKeys<R> };
+    }
+    if (options !== undefined) {
+      entry = { ...entry, ...options };
+    }
+    return entry;
+  }
+
+  function newGroup(
+    name: SimpleGroupField,
+    options?: GroupFieldOptions,
+  ): SimpleGroupField {
+    if (!options) {
+      return name;
+    }
+    if (typeof name === "string" || typeof name === "number" || typeof name === "symbol") {
+      return { name, ...options };
+    }
+    return { ...name, ...options };
+  }
+
+  const field: FieldsBuilder<R, T>["field"] = (
+    field: KeyField<R, T>,
+    asOrOptions?: LeafKeys<R> | KeyFieldOptions,
+    options?: KeyFieldOptions,
+  ) => {
+    const isOptions = typeof asOrOptions === "object"
+      && asOrOptions !== null
+      && "json" in asOrOptions;
+    const resolvedAs = isOptions ? undefined : (asOrOptions as PropertyKey);
+    const resolvedOptions = isOptions ? (asOrOptions as KeyFieldOptions) : options;
+
+    //Create the new field entry
+    const entry = newField(field, resolvedAs, resolvedOptions);
+    fields.push(entry);
+    return api;
+  };
+
+  const group: FieldsBuilder<R, T>["group"] = (
+    name: GroupField<R>,
+    optionsOrBuild: GroupFieldOptions | ((builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>),
+    build?: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>,
+  ) => {
+    const options = typeof optionsOrBuild === "object" ? optionsOrBuild : undefined;
+    const buildFn = typeof optionsOrBuild === "function" ? optionsOrBuild : build;
+    if (!buildFn) {
+      throw new Error("Group builder requires a builder callback.");
+    }
+    const nested = buildFn(fieldsBuilder<R, T>()).build();
+    const groupField = newGroup(
+      name as SimpleGroupField,
+      options,
+    );
+    fields.push([groupField as GroupField<R>, nested] as Field<R, T>);
+    return api;
+  };
+
+  const build: FieldsBuilder<R, T>["build"] = () => {
+    if (fields.length === 0 || Array.isArray(fields[0])) {
+      throw new Error("Fields builder requires the first field to be a key field.");
+    }
+    return fields as Fields<R, T>;
+  };
+
+  const api: FieldsBuilder<R, T> = { field, group, build };
+  return api;
+}
 
 export function objectify<R = unknown, T = Row>(
   data: T[],

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Fields, objectify } from "../index";
+import { type Fields, fieldsBuilder, objectify } from "../index";
 
 
 type Input = {
@@ -56,7 +56,7 @@ const data: Input[] = [
 
 
 
-const fields: Fields<ResultObject | ResultArray, Input> = [
+const fields: Fields<ResultObject, Input> = [
 	{ key: "id", as: "area_id" },
 	{ key: "code", as: "area_code" },
 	"name",
@@ -165,5 +165,28 @@ describe("objectify", () => {
 			{ id: 1, payload: { value: 42 } },
 			{ id: 2, payload: null },
 		]);
+	});
+});
+
+describe("fieldsBuilder", () => {
+	it("builds fields with plain keys", () => {
+		const fields2 = fieldsBuilder<ResultObject, Input>()
+			.field("id", "area_id")
+			.field("code", "area_code")
+			.field("name")
+			.field("meta", { json: true })
+			.group("rules", (g) => g
+				.field("rule_id")
+				.field("formula", "rule")
+				.group("meters", { object: true }, (g) => g
+					.field("meter_id", "id")
+				)
+				.group("areas", { object: false }, (g) => g
+					.field("area_id")
+				)
+			)
+			.build();
+
+		expect(fields2).toEqual(fields);
 	});
 });

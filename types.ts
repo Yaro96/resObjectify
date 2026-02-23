@@ -21,7 +21,7 @@ type HasIndexSignature<T> =
         ? true
         : false;
 
-type LeafKeys<T> = [T] extends [Primitives]
+export type LeafKeys<T> = [T] extends [Primitives]
   ? never
   : [T] extends [Array]
     ? LeafKeys<ArrayElement<T>>
@@ -34,7 +34,7 @@ type LeafKeys<T> = [T] extends [Primitives]
       : never;
 
 
-type BranchKeys<T> = [T] extends [Primitives]
+export type BranchKeys<T> = [T] extends [Primitives]
   ? never
   : [T] extends [Array]
     ? BranchKeys<ArrayElement<T>>
@@ -74,3 +74,24 @@ export type SimpleGroupField = PropertyKey | {
 export type Field<R = Row, T = Row> = KeyField<R, T> | [GroupField<R>, Fields<R, T>];
 
 export type Fields<R = Row, T = Row> = [KeyField<R, T>, ...Field<R, T>[]];
+
+export type KeyFieldOptions = {
+  json?: boolean;
+};
+
+export type GroupFieldOptions = {
+  object?: boolean;
+};
+
+export type FieldsBuilder<R = Row, T = Row> = {
+  field: {
+    (field: KeyField<R, T>): FieldsBuilder<R, T>;
+    (key: KeyName<T>, as?: LeafKeys<R>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
+    (key: KeyName<T>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
+  };
+  group: {
+    (name: GroupField<R>, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
+    (name: GroupField<R>, options: GroupFieldOptions, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
+  };
+  build(): Fields<R, T>;
+};
