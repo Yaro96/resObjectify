@@ -28,7 +28,7 @@ export type LeafKeys<T> = [T] extends [Primitives]
     : [T] extends [Object]
       ? {
           [K in keyof T]-?: T[K] extends Primitives
-            ? (StringKey<K> | DefaultReturn)
+            ? (StringKey<K> | DefaultString)
             : LeafKeys<ChildPart<T[K]>>;
         }[keyof T]
       : never;
@@ -44,7 +44,7 @@ export type BranchKeys<T> = [T] extends [Primitives]
         : {
             [K in keyof T]-?: T[K] extends Primitives
               ? never
-              : StringKey<K> | BranchKeys<ChildPart<T[K]>> | DefaultReturn;
+              : StringKey<K> | BranchKeys<ChildPart<T[K]>> | DefaultString;
           }[keyof T]
       : never;
 
@@ -90,8 +90,8 @@ export type FieldsBuilder<R = Row, T = Row> = {
     (key: KeyName<T>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
   };
   group: {
-    (name: GroupField<R>, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
-    (name: GroupField<R>, options: GroupFieldOptions, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
+    (name: GroupField<R> | SimpleGroupField, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
+    (name: GroupField<R> | SimpleGroupField, options: GroupFieldOptions, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
   };
   build(): Fields<R, T>;
 };
