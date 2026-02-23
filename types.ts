@@ -66,8 +66,8 @@ export type GroupField<R = Row> = BranchKeys<R> | {
   object?: boolean;
 };
 
-export type SimpleGroupField = PropertyKey | {
-  name: PropertyKey;
+export type SimpleGroupField = DefaultString | {
+  name: DefaultString;
   object?: boolean;
 };
 
@@ -90,8 +90,8 @@ export type FieldsBuilder<R = Row, T = Row> = {
     (key: KeyName<T>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
   };
   group: {
-    (name: GroupField<R>, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
-    (name: GroupField<R>, options: GroupFieldOptions, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
+    (name: GroupField<R> | SimpleGroupField, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
+    (name: GroupField<R> | SimpleGroupField, options: GroupFieldOptions, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
   };
   build(): Fields<R, T>;
 };

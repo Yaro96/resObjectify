@@ -12,6 +12,7 @@ import type {
   Row,
   KeyFieldOptions,
   GroupFieldOptions,
+  DefaultString,
 } from "./types";
 
 export type { Fields, FieldsBuilder } from "./types";
@@ -69,7 +70,7 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
   };
 
   const group: FieldsBuilder<R, T>["group"] = (
-    name: GroupField<R>,
+    name: GroupField<R> | SimpleGroupField,
     optionsOrBuild: GroupFieldOptions | ((builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>),
     build?: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>,
   ) => {
