@@ -213,6 +213,24 @@ describe("fieldsBuilder", () => {
   it("builds fields with object parameters", () => {
     const fields2 = fieldsBuilder()
       .field({ key: "id", as: "area_id" })
+      .field({ key: "code", as: "area_code" })
+      .field("name")
+      .field({ key: "meta", json: true })
+      .group("rules", (g) =>
+        g
+          .field("rule_id")
+          .field({ key: "formula", as: "rule" })
+          .group({ name: "meters", object: true }, (g) => g.field("meter_id"))
+          .group({ name: "areas", object: false }, (g) => g.field("area_id")),
+      )
+      .build();
+
+    expect(fields2).toEqual(fields);
+  });
+
+  it("builds fields with only result type", () => {
+    const fields2 = fieldsBuilder<ResultArray>()
+      .field("id", "area_id")
       .field("code", "area_code")
       .field("name")
       .field("meta", { json: true })
