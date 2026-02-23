@@ -3,40 +3,51 @@ export type Row = Record<PropertyKey, unknown>;
 export type KeyName<T = Row> = Extract<keyof T, string>;
 
 
+type DefaultReturn = string & {};
+
 type ArrayElement<T> = T extends readonly (infer U)[] ? U : never;
-type ObjectPart<T> = Extract<T, object>;
-type ArrayPart<T> = Extract<ObjectPart<T>, readonly unknown[]>;
-type NonArrayObjectPart<T> = Exclude<ObjectPart<T>, readonly unknown[]>;
+type StringKey<K> = Extract<K, string>;
 
+type Primitives = string | number | boolean | null | undefined | Date;
+type Array = readonly unknown[];
+type Object = Record<PropertyKey, unknown>;
+type ChildPart<T> = Extract<T, Array | Object>;
 type HasIndexSignature<T> =
-  string extends keyof T ? true :
-  number extends keyof T ? true :
-  symbol extends keyof T ? true :
-  false;
+  string extends keyof T
+    ? true
+    : number extends keyof T
+      ? true
+      : symbol extends keyof T
+        ? true
+        : false;
 
-export type LeafKeys<T> = [T] extends [readonly (infer U)[]]
-  ? LeafKeys<U>
-  : [T] extends [object]
-  ? HasIndexSignature<T> extends true
-    ? LeafKeys<T[keyof T]>
-    : {
-      [K in keyof T]-?: [ObjectPart<T[K]>] extends [never]
-        ? K
-        : LeafKeys<NonArrayObjectPart<T[K]>> | LeafKeys<ArrayElement<ArrayPart<T[K]>>>
-    }[keyof T]
-  : (string & {});
+type LeafKeys<T> = [T] extends [Primitives]
+  ? never
+  : [T] extends [Array]
+    ? LeafKeys<ArrayElement<T>>
+    : [T] extends [Object]
+      ? {
+          [K in keyof T]-?: T[K] extends Primitives
+            ? (StringKey<K> | DefaultReturn)
+            : LeafKeys<ChildPart<T[K]>>;
+        }[keyof T]
+      : never;
 
-export type BranchKeys<T> = [T] extends [readonly (infer U)[]]
-  ? BranchKeys<U>
-  : [T] extends [object]
-  ? HasIndexSignature<T> extends true
-    ? BranchKeys<T[keyof T]>
-    : {
-      [K in keyof T]-?: [ObjectPart<T[K]>] extends [never]
-        ? never
-        : K | BranchKeys<NonArrayObjectPart<T[K]>> | BranchKeys<ArrayElement<ArrayPart<T[K]>>>
-    }[keyof T]
-  : (string & {});
+
+type BranchKeys<T> = [T] extends [Primitives]
+  ? never
+  : [T] extends [Array]
+    ? BranchKeys<ArrayElement<T>>
+    : [T] extends [Object]
+      ? HasIndexSignature<T> extends true
+        ? BranchKeys<ChildPart<T[keyof T]>>
+        : {
+            [K in keyof T]-?: T[K] extends Primitives
+              ? never
+              : StringKey<K> | BranchKeys<ChildPart<T[K]>> | DefaultReturn;
+          }[keyof T]
+      : never;
+
 
 export type Prettify<T> = {
   [K in keyof T]: T[K];
@@ -52,6 +63,11 @@ export type KeyField<R = Row, T = Row> = KeyName<T> | {
 
 export type GroupField<R = Row> = BranchKeys<R> | {
   name: BranchKeys<R>;
+  object?: boolean;
+};
+
+export type SimpleGroupField = PropertyKey | {
+  name: PropertyKey;
   object?: boolean;
 };
 

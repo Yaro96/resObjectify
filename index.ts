@@ -1,6 +1,6 @@
 import type {
+  SimpleGroupField,
   Fields,
-  GroupField,
   KeyField,
   KeyName,
   Prettify,
@@ -10,12 +10,12 @@ import type {
 
 export type { Fields } from "./types";
 
-export function objectify<R = unknown, T extends Row = Row>(
+export function objectify<R = unknown, T = Row>(
   data: T[],
   fields: Fields<R, T>,
   object: true,
 ): Record<PropertyKey, Prettify<R>>;
-export function objectify<R = unknown, T extends Row = Row>(
+export function objectify<R = unknown, T = Row>(
   data: T[],
   fields: Fields<R, T>,
   object?: false,
@@ -48,14 +48,16 @@ export function objectify<R = unknown>(
 
   for (const [keyValue, rows] of groups) {
     const row = rows[0];
-    const obj: Record<string, unknown> = {};
+    const obj: Record<PropertyKey, unknown> = {};
 
     for (const field of fields) {
       // If the field is not an array, it is a key field, so we can get the value from the row
       if (!Array.isArray(field)) {
-        obj[getFieldName(field)] = getFieldValue(row, field);
+        const fieldName = getFieldName(field);
+        obj[fieldName] = getFieldValue(row, field);
       } else { // If the field is an array, it is a group field, so we need to objectify the nested fields recursively
-        const [groupField, nestedFields] = field;
+        const [rawGroupField, nestedFields] = field;
+        const groupField = rawGroupField as SimpleGroupField;
         const nestedObject = isObject(groupField, object);
         obj[getGroupName(groupField)] = nestedObject
           ? objectify(rows, nestedFields, true)
@@ -97,15 +99,15 @@ function groupByKey<T extends Row>(
   return groups;
 }
 
-function getKeyField<T extends Row>(field: KeyField<T>): KeyName<T> {
+function getKeyField<R, T extends Row>(field: KeyField<R, T>): KeyName<T> {
   return (typeof field === "string" ? field : field.key) as KeyName<T>;
 }
 
-function getFieldName<T extends Row>(field: KeyField<T>) {
-  return typeof field === "string" ? field : (field.as ?? field.key);
+function getFieldName<R, T extends Row>(field: KeyField<R, T>): PropertyKey {
+  return (typeof field === "string" ? field : (field.as ?? field.key)) as PropertyKey;
 }
 
-function getFieldValue<T extends Row>(row: T, field: KeyField<T>): unknown {
+function getFieldValue<R, T extends Row>(row: T, field: KeyField<R, T>): unknown {
   if (typeof field === "string") {
     return row[field];
   }
@@ -121,12 +123,16 @@ function getFieldValue<T extends Row>(row: T, field: KeyField<T>): unknown {
   return row[key];
 }
 
-function getGroupName(field: GroupField) {
-  return typeof field === "string" ? field : field.name;
+function getGroupName(field: SimpleGroupField): PropertyKey {
+  if (typeof field === "string" || typeof field === "number" || typeof field === "symbol") {
+    return field;
+  }
+  return field.name;
 }
 
-function isObject(field: GroupField, defaultValue: boolean) {
-  return typeof field === "string"
-    ? defaultValue
-    : (field.object ?? defaultValue);
+function isObject(field: SimpleGroupField, defaultValue: boolean) {
+  if (typeof field !== "object" || field == null) {
+    return defaultValue;
+  }
+  return field.object ?? defaultValue;
 }
