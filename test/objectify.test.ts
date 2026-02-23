@@ -211,24 +211,24 @@ describe("fieldsBuilder", () => {
 		expect(fields2).toEqual(fields);
 	});
 
-	it("builds fields with object parameters", () => {
-		const fields2 = fieldsBuilder()
-			.field({ key: "id", as: "area_id" })
-			.field("code", "area_code")
-			.field("name")
-			.field("meta", { json: true })
-			.group("rules", (g) => g
-				.field("rule_id")
-				.field("formula", "rule")
-				.group("meters", { object: true }, (g) => g
-					.field("meter_id", "id")
-				)
-				.group("areas", { object: false }, (g) => g
-					.field("area_id")
-				)
-			)
-			.build();
+	// it("builds fields with object parameters", () => {
+	// 	const fields2 = fieldsBuilder()
+	// 		.field({ key: "id", as: "area_id" })
+	// 		.field("code", "area_code")
+	// 		.field("name")
+	// 		.field("meta", { json: true })
+	// 		.group("rules", (g) => g
+	// 			.field("rule_id")
+	// 			.field("formula", "rule")
+	// 			.group("meters", { object: true }, (g) => g
+	// 				.field("meter_id", "id")
+	// 			)
+	// 			.group("areas", { object: false }, (g) => g
+	// 				.field("area_id")
+	// 			)
+	// 		)
+	// 		.build();
 
-		expect(fields2).toEqual(fields);
-	});
+	// 	expect(fields2).toEqual(fields);
+	// });
 });

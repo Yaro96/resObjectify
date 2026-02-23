@@ -40,14 +40,11 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
   }
 
   function newGroup(
-    name: SimpleGroupField,
+    name: GroupField<R>,
     options?: GroupFieldOptions,
-  ): SimpleGroupField {
+  ): GroupField<R> {
     if (!options) {
       return name;
-    }
-    if (typeof name === "string" || typeof name === "number" || typeof name === "symbol") {
-      return { name, ...options };
     }
     return { ...name, ...options };
   }
@@ -70,7 +67,7 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
   };
 
   const group: FieldsBuilder<R, T>["group"] = (
-    name: GroupField<R> | SimpleGroupField,
+    name: GroupField<R>,
     optionsOrBuild: GroupFieldOptions | ((builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>),
     build?: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>,
   ) => {
@@ -80,11 +77,8 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
       throw new Error("Group builder requires a builder callback.");
     }
     const nested = buildFn(fieldsBuilder<R, T>()).build();
-    const groupField = newGroup(
-      name as SimpleGroupField,
-      options,
-    );
-    fields.push([groupField as GroupField<R>, nested] as Field<R, T>);
+    const groupField = newGroup(name, options);
+    fields.push([groupField, nested]);
     return api;
   };
 

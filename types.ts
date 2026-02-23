@@ -3,7 +3,7 @@ export type Row = Record<PropertyKey, unknown>;
 export type KeyName<T = Row> = Extract<keyof T, string>;
 
 
-type DefaultReturn = string & {};
+export type DefaultString = string & {};
 
 type ArrayElement<T> = T extends readonly (infer U)[] ? U : never;
 type StringKey<K> = Extract<K, string>;
@@ -90,8 +90,8 @@ export type FieldsBuilder<R = Row, T = Row> = {
     (key: KeyName<T>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
   };
   group: {
-    (name: GroupField<R> | SimpleGroupField, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
-    (name: GroupField<R> | SimpleGroupField, options: GroupFieldOptions, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
+    (name: GroupField<R>, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
+    (name: GroupField<R>, options: GroupFieldOptions, fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>): FieldsBuilder<R, T>;
   };
   build(): Fields<R, T>;
 };
