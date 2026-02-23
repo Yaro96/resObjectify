@@ -1,43 +1,50 @@
 import { describe, expect, it } from "vitest";
-import { type Fields, fieldsBuilder, objectify } from "../index";
-
+import { fieldsBuilder } from "../src/fieldsBuilder";
+import { objectify } from "../src/objectify";
+import type { Fields } from "../types";
 
 type Input = {
-	id: number;
-	code: string;
-	name: string;
-	rule_id: number | null;
-	formula?: string | null;
-	meter_id?: number;
-	area_id?: number | null;
-	meta: string | null;
-}
+  id: number;
+  code: string;
+  name: string;
+  rule_id: number | null;
+  formula?: string | null;
+  meter_id?: number;
+  area_id?: number | null;
+  meta: string | null;
+};
 
 type ResultArray = {
-	area_id: number;
-	area_code: string;
-	name: string;
-	meta: { tier: number } | null;
-	rules: {
-		rule_id: number;
-		rule: string | null;
-		meters: number[];
-		areas: number[];
-	}[];
-}
+  area_id: number;
+  area_code: string;
+  name: string;
+  meta: { tier: number } | null;
+  rules: {
+    rule_id: number;
+    rule: string | null;
+    meters: number[];
+    areas: number[];
+  }[];
+};
 
-type ResultObject = Record<PropertyKey, {
-	area_id: number;
-	area_code: string;
-	name: string;
-	meta: { tier: number } | null;
-	rules: Record<PropertyKey, {
-		rule_id: number;
-		rule: string | null;
-		meters: number[];
-		areas: number[];
-	}>;
-}>;
+type ResultObject = Record<
+  PropertyKey,
+  {
+    area_id: number;
+    area_code: string;
+    name: string;
+    meta: { tier: number } | null;
+    rules: Record<
+      PropertyKey,
+      {
+        rule_id: number;
+        rule: string | null;
+        meters: number[];
+        areas: number[];
+      }
+    >;
+  }
+>;
 
 // biome-ignore format: list
 const data: Input[] = [
@@ -54,181 +61,170 @@ const data: Input[] = [
 	{ id: 333, code: "ccc", name: "fail", rule_id: null, meta: null },
 ];
 
-
-
 const fields: Fields<ResultArray, Input> = [
-	{ key: "id", as: "area_id" },
-	{ key: "code", as: "area_code" },
-	"name",
-	{ key: "meta", json: true },
-	[
-		"rules",
-		[
-			"rule_id",
-			{ key: "formula", as: "rule" },
-			[{ name: "meters", object: true }, ["meter_id"]],
-			[{ name: "areas", object: false }, ["area_id"]],
-		],
-	],
+  { key: "id", as: "area_id" },
+  { key: "code", as: "area_code" },
+  "name",
+  { key: "meta", json: true },
+  [
+    "rules",
+    [
+      "rule_id",
+      { key: "formula", as: "rule" },
+      [{ name: "meters", object: true }, ["meter_id"]],
+      [{ name: "areas", object: false }, ["area_id"]],
+    ],
+  ],
 ];
 
 describe("objectify", () => {
-	it("builds nested arrays for rules, meters, and areas", () => {
-		expect(objectify<ResultArray>(data, fields)).toEqual([
-			{
-				area_id: 222,
-				area_code: "bbb",
-				name: "second",
-				meta: { tier: 2 },
-				rules: [
-					{ rule_id: 1, rule: "r1", meters: [5], areas: [40] },
-					{ rule_id: 2, rule: null, meters: [6, 7], areas: [41] },
-				],
-			},
-			{
-				area_id: 111,
-				area_code: "aaa",
-				name: "first",
-				meta: { tier: 1, active: true },
-				rules: [
-					{ rule_id: 1, rule: "asd", meters: [8, 10], areas: [31, 95] },
-					{ rule_id: 2, rule: "sad", meters: [9, 10, 12], areas: [95] },
-				],
-			},
-			{
-				area_code: "ddd",
-				area_id: 444,
-				meta: null,
-				name: "fourth",
-				rules: [{ rule_id: 5, rule: "void", meters: [4], areas: [] }],
-			},
-			{
-				area_code: "ccc",
-				area_id: 333,
-				meta: null,
-				name: "fail",
-				rules: [],
-			},
-		]);
-	});
+  it("builds nested arrays for rules, meters, and areas", () => {
+    expect(objectify<ResultArray>(data, fields)).toEqual([
+      {
+        area_id: 222,
+        area_code: "bbb",
+        name: "second",
+        meta: { tier: 2 },
+        rules: [
+          { rule_id: 1, rule: "r1", meters: [5], areas: [40] },
+          { rule_id: 2, rule: null, meters: [6, 7], areas: [41] },
+        ],
+      },
+      {
+        area_id: 111,
+        area_code: "aaa",
+        name: "first",
+        meta: { tier: 1, active: true },
+        rules: [
+          { rule_id: 1, rule: "asd", meters: [8, 10], areas: [31, 95] },
+          { rule_id: 2, rule: "sad", meters: [9, 10, 12], areas: [95] },
+        ],
+      },
+      {
+        area_code: "ddd",
+        area_id: 444,
+        meta: null,
+        name: "fourth",
+        rules: [{ rule_id: 5, rule: "void", meters: [4], areas: [] }],
+      },
+      {
+        area_code: "ccc",
+        area_id: 333,
+        meta: null,
+        name: "fail",
+        rules: [],
+      },
+    ]);
+  });
 
-	it("returns an object map when object=true", () => {
-		expect(objectify<ResultObject>(data, fields, true)).toEqual({
-			222: {
-				area_id: 222,
-				area_code: "bbb",
-				name: "second",
-				meta: { tier: 2 },
-				rules: {
-					1: { rule_id: 1, rule: "r1", meters: [5], areas: [40] },
-					2: { rule_id: 2, rule: null, meters: [6, 7], areas: [41] },
-				},
-			},
-			111: {
-				area_id: 111,
-				area_code: "aaa",
-				name: "first",
-				meta: { tier: 1, active: true },
-				rules: {
-					1: { rule_id: 1, rule: "asd", meters: [8, 10], areas: [31, 95] },
-					2: { rule_id: 2, rule: "sad", meters: [9, 10, 12], areas: [95] },
-				},
-			},
-			444: {
-				area_code: "ddd",
-				area_id: 444,
-				meta: null,
-				name: "fourth",
-				rules: {
-					5: { areas: [], meters: [4], rule: "void", rule_id: 5 },
-				},
-			},
-			333: {
-				area_code: "ccc",
-				area_id: 333,
-				meta: null,
-				name: "fail",
-				rules: {},
-			},
-		});
-	});
+  it("returns an object map when object=true", () => {
+    expect(objectify<ResultObject>(data, fields, true)).toEqual({
+      222: {
+        area_id: 222,
+        area_code: "bbb",
+        name: "second",
+        meta: { tier: 2 },
+        rules: {
+          1: { rule_id: 1, rule: "r1", meters: [5], areas: [40] },
+          2: { rule_id: 2, rule: null, meters: [6, 7], areas: [41] },
+        },
+      },
+      111: {
+        area_id: 111,
+        area_code: "aaa",
+        name: "first",
+        meta: { tier: 1, active: true },
+        rules: {
+          1: { rule_id: 1, rule: "asd", meters: [8, 10], areas: [31, 95] },
+          2: { rule_id: 2, rule: "sad", meters: [9, 10, 12], areas: [95] },
+        },
+      },
+      444: {
+        area_code: "ddd",
+        area_id: 444,
+        meta: null,
+        name: "fourth",
+        rules: {
+          5: { areas: [], meters: [4], rule: "void", rule_id: 5 },
+        },
+      },
+      333: {
+        area_code: "ccc",
+        area_id: 333,
+        meta: null,
+        name: "fail",
+        rules: {},
+      },
+    });
+  });
 
-	it("parses json fields when json=true", () => {
-		const arr = [
-			{ id: 1, payload: '{"value":42}' },
-			{ id: 2, payload: null },
-		];
+  it("parses json fields when json=true", () => {
+    const arr = [
+      { id: 1, payload: '{"value":42}' },
+      { id: 2, payload: null },
+    ];
 
-		const fields: Fields = ["id", { key: "payload", json: true }];
+    const fields: Fields = ["id", { key: "payload", json: true }];
 
-		expect(objectify(arr, fields)).toEqual([
-			{ id: 1, payload: { value: 42 } },
-			{ id: 2, payload: null },
-		]);
-	});
+    expect(objectify(arr, fields)).toEqual([
+      { id: 1, payload: { value: 42 } },
+      { id: 2, payload: null },
+    ]);
+  });
 });
 
 describe("fieldsBuilder", () => {
-	it("builds fields with plain keys", () => {
-		const fields2 = fieldsBuilder<ResultObject, Input>()
-			.field("id", "area_id")
-			.field("code", "area_code")
-			.field("name")
-			.field("meta", { json: true })
-			.group("rules", (g) => g
-				.field("rule_id")
-				.field("formula", "rule")
-				.group("meters", { object: true }, (g) => g
-					.field("meter_id")
-				)
-				.group("areas", { object: false }, (g) => g
-					.field("area_id")
-				)
-			)
-			.build();
+  it("builds fields with plain keys", () => {
+    const fields2 = fieldsBuilder<ResultObject, Input>()
+      .field("id", "area_id")
+      .field("code", "area_code")
+      .field("name")
+      .field("meta", { json: true })
+      .group("rules", (g) =>
+        g
+          .field("rule_id")
+          .field("formula", "rule")
+          .group("meters", { object: true }, (g) => g.field("meter_id"))
+          .group("areas", { object: false }, (g) => g.field("area_id")),
+      )
+      .build();
 
-		expect(fields2).toEqual(fields);
-	});
+    expect(fields2).toEqual(fields);
+  });
 
-	it("builds fields without strict typing", () => {
-		const fields2 = fieldsBuilder()
-			.field("id", "area_id")
-			.field("code", "area_code")
-			.field("name")
-			.field("meta", { json: true })
-			.group("rules", (g) => g
-				.field("rule_id")
-				.field("formula", "rule")
-				.group("meters", { object: true }, (g) => g
-					.field("meter_id")
-				)
-				.group("areas", { object: false }, (g) => g
-					.field("area_id")
-				)
-			)
-			.build();
+  it("builds fields without strict typing", () => {
+    const fields2 = fieldsBuilder()
+      .field("id", "area_id")
+      .field("code", "area_code")
+      .field("name")
+      .field("meta", { json: true })
+      .group("rules", (g) =>
+        g
+          .field("rule_id")
+          .field("formula", "rule")
+          .group("meters", { object: true }, (g) => g.field("meter_id"))
+          .group("areas", { object: false }, (g) => g.field("area_id")),
+      )
+      .build();
 
-		expect(fields2).toEqual(fields);
-	});
+    expect(fields2).toEqual(fields);
+  });
 
-	it("builds fields with object parameters", () => {
-		const fields2 = fieldsBuilder()
-			.field({ key: "id", as: "area_id" })
-			.field("code", "area_code")
-			.field("name")
-			.field("meta", { json: true })
-			.group("rules", (g) => g
-				.field("rule_id")
-				.field("formula", "rule")
-				.group("meters", { object: true }, (g) => g
-					.field("meter_id")
-				)
-				.group("areas", { object: false }, (g) => g
-					.field("area_id")
-				)
-			)
-			.build();
+  it("builds fields with object parameters", () => {
+    const fields2 = fieldsBuilder()
+      .field({ key: "id", as: "area_id" })
+      .field("code", "area_code")
+      .field("name")
+      .field("meta", { json: true })
+      .group("rules", (g) =>
+        g
+          .field("rule_id")
+          .field("formula", "rule")
+          .group("meters", { object: true }, (g) => g.field("meter_id"))
+          .group("areas", { object: false }, (g) => g.field("area_id")),
+      )
+      .build();
 
-		expect(fields2).toEqual(fields);
-	});
+    expect(fields2).toEqual(fields);
+  });
 });
