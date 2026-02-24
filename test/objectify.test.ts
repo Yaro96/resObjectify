@@ -27,24 +27,21 @@ type ResultArray = {
   }[];
 };
 
-type ResultObject = Record<
-  PropertyKey,
-  {
-    area_id: number;
-    area_code: string;
-    name: string;
-    meta: { tier: number } | null;
-    rules: Record<
-      PropertyKey,
-      {
-        rule_id: number;
-        rule: string | null;
-        meters: number[];
-        areas: number[];
-      }
-    >;
-  }
->;
+type ResultObject = {
+  area_id: number;
+  area_code: string;
+  name: string;
+  meta: { tier: number } | null;
+  rules: Record<
+    PropertyKey,
+    {
+      rule_id: number;
+      rule: string | null;
+      meters: number[];
+      areas: number[];
+    }
+  >;
+};
 
 // biome-ignore format: list
 const data: Input[] = [
@@ -61,7 +58,7 @@ const data: Input[] = [
 	{ id: 333, code: "ccc", name: "fail", rule_id: null, meta: null },
 ];
 
-const fields: Fields<ResultArray, Input> = [
+const fields: Fields<ResultObject, Input> = [
   { key: "id", as: "area_id" },
   { key: "code", as: "area_code" },
   "name",
@@ -159,25 +156,24 @@ describe("objectify", () => {
   });
 
   it("parses json fields when json=true", () => {
-
-	type InputJson = {
-		id: number;
-		payload: string | null;
-	};
+    type InputJson = {
+      id: number;
+      payload: string | null;
+    };
 
     const arr: InputJson[] = [
       { id: 1, payload: '{"value":42}' },
       { id: 2, payload: null },
     ];
 
-	type ResultJson = {
-		id: number;
-		payload: {
-			 value: number;
-		} | null;
-	};
+    type ResultJson = {
+      id: number;
+      payload: {
+        value: number;
+      } | null;
+    };
 
-    const fields: Fields<ResultJson,InputJson> = ["id", { key: "payload", json: true }];
+    const fields: Fields<ResultJson, InputJson> = ["id", { key: "payload", json: true }];
 
     expect(objectify(arr, fields)).toEqual([
       { id: 1, payload: { value: 42 } },
