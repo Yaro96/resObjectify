@@ -12,5 +12,5 @@
     "skipLibCheck": true,
     "noEmitOnError": true
   },
-  "include": ["src/objectify.ts"]
+  "include": ["index.ts"]
 }
