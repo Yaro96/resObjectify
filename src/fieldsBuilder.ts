@@ -1,6 +1,5 @@
 import type {
   Field,
-  Fields,
   FieldsBuilder,
   GroupField,
   GroupFieldOptions,
@@ -50,10 +49,7 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
   };
 
   const build: FieldsBuilder<R, T>["build"] = () => {
-    if (fields.length === 0 || Array.isArray(fields[0])) {
-      throw new Error("Fields builder requires the first field to be a key field.");
-    }
-    return fields as Fields<R, T>;
+    return fields;
   };
 
   const api: FieldsBuilder<R, T> = { field, group, build };

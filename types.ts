@@ -6,7 +6,7 @@ export type Row = Record<PropertyKey, unknown>;
 /**
  * String-only key names for a given row type.
  */
-export type KeyName<T = Row> = Extract<keyof T, string>;
+export type KeyName<T = Row> = Extract<keyof T, string> | undefined;
 
 /**
  * Fallback string type used when strict key extraction resolves to `never`.
@@ -124,12 +124,7 @@ export type SimpleGroupField =
 /**
  * Single field definition: direct key field or nested group tuple.
  */
-export type Field<R = Row, T = Row> = KeyField<R, T> | [GroupField<R>, Fields<R, T>];
-
-/**
- * Full field set, requiring the first entry to be a key field.
- */
-export type Fields<R = Row, T = Row> = [KeyField<R, T>, ...Field<R, T>[]];
+export type Field<R = Row, T = Row> = KeyField<R, T> | [GroupField<R>, Field<R, T>[]];
 
 /**
  * Extra options when defining a key field.
@@ -174,5 +169,5 @@ export type FieldsBuilder<R = Row, T = Row> = {
   /**
    * Finalizes and returns the accumulated field definition tuple.
    */
-  build(): Fields<R, T>;
+  build(): Field<R, T>[];
 };

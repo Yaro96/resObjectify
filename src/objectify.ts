@@ -1,4 +1,4 @@
-import type { Fields, KeyField, KeyName, Prettify, Result, Row, SimpleGroupField } from "../types";
+import type { Field, KeyField, KeyName, Prettify, Result, Row, SimpleGroupField } from "../types";
 
 /**
  * Transforms flat rows into nested objects/arrays based on a field definition.
@@ -8,27 +8,27 @@ import type { Fields, KeyField, KeyName, Prettify, Result, Row, SimpleGroupField
  */
 export function objectify<R = unknown, T = Row>(
   data: T[],
-  fields: Fields<R, T>,
+  fields: Field<R, T>[],
   object: true,
 ): Record<PropertyKey, Prettify<R>>;
 export function objectify<R = unknown, T = Row>(
   data: T[],
-  fields: Fields<R, T>,
+  fields: Field<R, T>[],
   object?: false,
 ): Prettify<R>[];
 export function objectify<R = unknown>(
   data: Row[],
-  fields: Fields<R>,
+  fields: Field<R>[],
   object: true,
 ): Record<PropertyKey, Prettify<R>>;
 export function objectify<R = unknown>(
   data: Row[],
-  fields: Fields<R>,
+  fields: Field<R>[],
   object?: false,
 ): Prettify<R>[];
 export function objectify<R = unknown>(
   data: Row[],
-  fields: Fields<R>,
+  fields: Field<R>[],
   object = false,
 ): Result<Prettify<R>> {
   // If the fields is a single field or object is false, group the result in an array, otherwise group the result in an object
@@ -46,25 +46,26 @@ export function objectify<R = unknown>(
     const obj: Record<PropertyKey, unknown> = {};
 
     for (const field of fields) {
-      // If the field is not an array, it is a key field, so we can get the value from the row
-      if (!Array.isArray(field)) {
-        const fieldName = getFieldName(field);
-        obj[fieldName] = getFieldValue(row, field);
-      } else {
-        // If the field is an array, it is a group field, so we need to objectify the nested fields recursively
+      const fieldName = getFieldName(field);
+      // If the field is an array, it is a group field, so we need to objectify the nested fields recursively
+      if (Array.isArray(field)) {
         const [rawGroupField, nestedFields] = field;
         const groupField = rawGroupField as SimpleGroupField;
         const nestedObject = isObject(groupField, object);
         obj[getGroupName(groupField)] = nestedObject
           ? objectify(rows, nestedFields, true)
           : objectify(rows, nestedFields, false);
+
+        // If the field is not an array, it is a key field, so we can get the value from the row
+      } else if (fieldName !== undefined) {
+        obj[fieldName] = getFieldValue(row, field);
       }
     }
 
-    if (obj[name] != null) {
+    if (name === undefined || obj[name] != null) {
       // If the result is an array, we need to push the object to the array
       if (Array.isArray(result)) {
-        result.push(restFields.length ? obj : obj[name]);
+        result.push(restFields.length || name === undefined ? obj : obj[name]);
       } else {
         // If the result is an object, we need to set the object to the key
         result[keyValue as PropertyKey] = obj;
@@ -84,7 +85,7 @@ export function objectify<R = unknown>(
 function groupByKey<T extends Row>(rows: T[], key: KeyName<T>): Map<unknown, T[]> {
   const groups = new Map<unknown, T[]>();
   for (const row of rows) {
-    const keyValue = row[key];
+    const keyValue = key !== undefined ? row[key] : undefined;
     const group = groups.get(keyValue);
     if (group) {
       group.push(row);
@@ -98,15 +99,21 @@ function groupByKey<T extends Row>(rows: T[], key: KeyName<T>): Map<unknown, T[]
 /**
  * Resolves the source key from either shorthand or object field syntax.
  */
-function getKeyField<R, T extends Row>(field: KeyField<R, T>): KeyName<T> {
-  return (typeof field === "string" ? field : field.key) as KeyName<T>;
+function getKeyField<R, T extends Row>(field: Field<R, T>): KeyName<T> {
+  if (Array.isArray(field)) {
+    return undefined;
+  }
+  return typeof field === "string" ? field : field?.key;
 }
 
 /**
  * Resolves the output property name for a key field.
  */
-function getFieldName<R, T extends Row>(field: KeyField<R, T>): PropertyKey {
-  return (typeof field === "string" ? field : (field.as ?? field.key)) as PropertyKey;
+function getFieldName<R, T extends Row>(field: Field<R, T>): PropertyKey | undefined {
+  if (Array.isArray(field)) {
+    return undefined;
+  }
+  return (typeof field === "string" ? field : (field?.as ?? field?.key)) as PropertyKey;
 }
 
 /**
@@ -117,7 +124,12 @@ function getFieldValue<R, T extends Row>(row: T, field: KeyField<R, T>): unknown
     return row[field];
   }
   const key = getKeyField(field);
-  if (field.json) {
+
+  if (key === undefined) {
+    return undefined;
+  }
+
+  if (field?.json) {
     try {
       return JSON.parse(row[key] as string);
     } catch (error) {

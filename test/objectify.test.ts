@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fieldsBuilder } from "../src/fieldsBuilder";
 import { objectify } from "../src/objectify";
-import type { Fields } from "../types";
+import type { Field } from "../types";
 
 type Input = {
   id: number;
@@ -58,7 +58,7 @@ const data: Input[] = [
 	{ id: 333, code: "ccc", name: "fail", rule_id: null, meta: null },
 ];
 
-const fields: Fields<ResultObject, Input> = [
+const fields: Field<ResultObject, Input>[] = [
   { key: "id", as: "area_id" },
   { key: "code", as: "area_code" },
   "name",
@@ -173,11 +173,113 @@ describe("objectify", () => {
       } | null;
     };
 
-    const fields: Fields<ResultJson, InputJson> = ["id", { key: "payload", json: true }];
+    const fields: Field<ResultJson, InputJson>[] = ["id", { key: "payload", json: true }];
 
     expect(objectify(arr, fields)).toEqual([
       { id: 1, payload: { value: 42 } },
       { id: 2, payload: null },
+    ]);
+  });
+
+  it("supports empty-string keys", () => {
+    type EmptyKeyInput = {
+      "": number;
+      v: string;
+    };
+
+    const arr: EmptyKeyInput[] = [
+      { "": 1, v: "a" },
+      { "": 3, v: "b" },
+    ];
+
+    const fields: Field<EmptyKeyInput, EmptyKeyInput>[] = ["", "v"];
+
+    expect(objectify(arr, fields)).toEqual([
+      { "": 1, v: "a" },
+      { "": 3, v: "b" },
+    ]);
+
+    expect(objectify(arr, fields, true)).toEqual({
+      1: { "": 1, v: "a" },
+      3: { "": 3, v: "b" },
+    });
+  });
+
+  it("allow to group without a key field", () => {
+    type Input = {
+      eventType: string;
+      eventCount: number;
+      uniqueCount: number;
+    };
+
+    type Result = {
+      totalEvents: { eventType: string; eventCount: number }[];
+      uniqueEvents: { eventType: string; uniqueCount: number }[];
+    };
+
+    const fields: Field<Result, Input>[] = [
+      ["totalEvents", ["eventType", "eventCount"]],
+      ["uniqueEvents", ["eventType", "uniqueCount"]],
+    ];
+
+    const data: Input[] = [
+      { eventType: "click", eventCount: 10, uniqueCount: 5 },
+      { eventType: "view", eventCount: 20, uniqueCount: 10 },
+      { eventType: "click", eventCount: 30, uniqueCount: 15 },
+      { eventType: "view", eventCount: 40, uniqueCount: 20 },
+    ];
+
+    expect(objectify(data, fields)).toEqual([
+      {
+        totalEvents: [
+          { eventType: "click", eventCount: 10 },
+          { eventType: "view", eventCount: 20 },
+        ],
+        uniqueEvents: [
+          { eventType: "click", uniqueCount: 5 },
+          { eventType: "view", uniqueCount: 10 },
+        ],
+      },
+    ]);
+  });
+
+  it("allow to group without a key field", () => {
+    type Input = {
+      eventType: string;
+      eventCount: number;
+      uniqueCount: number;
+    };
+
+    type Result = {
+      eventType: string;
+      eventCounts: number[];
+      uniqueCounts: number[];
+    };
+
+    const fields: Field<Result, Input>[] = [
+      "eventType",
+      ["eventCounts", ["eventCount"]],
+      ["uniqueCounts", ["uniqueCount"]],
+    ];
+
+    const data: Input[] = [
+      { eventType: "click", eventCount: 10, uniqueCount: 5 },
+      { eventType: "view", eventCount: 20, uniqueCount: 10 },
+      { eventType: "click", eventCount: 30, uniqueCount: 15 },
+      { eventType: "view", eventCount: 40, uniqueCount: 20 },
+    ];
+
+    expect(objectify(data, fields)).toEqual([
+      {
+        eventType: "click",
+        eventCounts: [10, 30],
+        uniqueCounts: [5, 15],
+      },
+      {
+        eventType: "view",
+        eventCounts: [20, 40],
+        uniqueCounts: [10, 20],
+      },
     ]);
   });
 });
@@ -253,5 +355,28 @@ describe("fieldsBuilder", () => {
       .build();
 
     expect(fields2).toEqual(fields);
+  });
+
+  it("builds fields without a key field", () => {
+    type Input = {
+      eventType: string;
+      eventCount: number;
+      uniqueCount: number;
+    };
+
+    type Result = {
+      totalEvents: { event: string; eventCount: number }[];
+      uniqueEvents: { event: string; uniqueCount: number }[];
+    };
+
+    const fields2 = fieldsBuilder<Result, Input>()
+      .group("totalEvents", (g) => g.field("eventType", "event").field("eventCount"))
+      .group("uniqueEvents", (g) => g.field("eventType", "event").field("uniqueCount"))
+      .build();
+
+    expect(fields2).toEqual([
+      ["totalEvents", [{ key: "eventType", as: "event" }, "eventCount"]],
+      ["uniqueEvents", [{ key: "eventType", as: "event" }, "uniqueCount"]],
+    ]);
   });
 });
