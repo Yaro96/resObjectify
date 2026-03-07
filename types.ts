@@ -6,7 +6,7 @@ export type Row = Record<PropertyKey, unknown>;
 /**
  * String-only key names for a given row type.
  */
-export type KeyName<T = Row> = Extract<keyof T, string> | undefined;
+export type KeyName<T = Row> = Extract<keyof T, string>;
 
 /**
  * Fallback string type used when strict key extraction resolves to `never`.

@@ -24,7 +24,7 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
     const isOptions =
       typeof asOrOptions === "object" && asOrOptions !== null && "json" in asOrOptions;
     const resolvedAs = isOptions ? undefined : (asOrOptions as PropertyKey);
-    const resolvedOptions = isOptions ? (asOrOptions as KeyFieldOptions) : options;
+    const resolvedOptions = isOptions ? asOrOptions : options;
 
     // Normalize overload inputs into a single key-field shape.
     const entry = newField<R, T>(field, resolvedAs, resolvedOptions);
@@ -49,7 +49,7 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
   };
 
   const build: FieldsBuilder<R, T>["build"] = () => {
-    return fields;
+    return [...fields];
   };
 
   const api: FieldsBuilder<R, T> = { field, group, build };
@@ -64,7 +64,7 @@ function newField<R = Row, T = Row>(
   as?: PropertyKey,
   options?: KeyFieldOptions,
 ): KeyField<R, T> {
-  if (!as && !options) {
+  if (as === undefined && options === undefined) {
     return key;
   }
 

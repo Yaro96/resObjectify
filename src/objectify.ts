@@ -31,12 +31,16 @@ export function objectify<R = unknown>(
   fields: Field<R>[],
   object = false,
 ): Result<Prettify<R>> {
-  // If the fields is a single field or object is false, group the result in an array, otherwise group the result in an object
-  const result: unknown[] | Record<PropertyKey, unknown> = fields.length === 1 || !object ? [] : {};
+  if (!Array.isArray(fields) || fields.length === 0) {
+    return (object ? {} : []) as Result<Prettify<R>>;
+  }
 
   const [keyField, ...restFields] = fields;
   const key = getKeyField(keyField);
   const name = getFieldName(keyField);
+  // Keep single root-key selections as arrays, but allow keyless group-only selections to be objects in object mode.
+  const shouldUseObjectResult = object && (fields.length > 1 || name === undefined);
+  const result: unknown[] | Record<PropertyKey, unknown> = shouldUseObjectResult ? {} : [];
   // Pre-group by the current key so each recursion only sees its parent slice,
   // which removes the need for parent checks or duplicate tracking.
   const groups = groupByKey(data, key);
@@ -61,28 +65,49 @@ export function objectify<R = unknown>(
         obj[fieldName] = getFieldValue(row, field);
       }
     }
-
-    if (name === undefined || obj[name] != null) {
-      // If the result is an array, we need to push the object to the array
-      if (Array.isArray(result)) {
-        result.push(restFields.length || name === undefined ? obj : obj[name]);
-      } else {
-        // If the result is an object, we need to set the object to the key
-        result[keyValue as PropertyKey] = obj;
-      }
-    }
+    appendToResult(result, obj, name, keyValue as PropertyKey, restFields.length > 0);
   }
 
-  if (object) {
+  if (!Array.isArray(result)) {
     return result as Record<PropertyKey, Prettify<R>>;
   }
   return result as Prettify<R>[];
 }
 
+function appendToResult(
+  result: unknown[] | Record<PropertyKey, unknown>,
+  obj: Record<PropertyKey, unknown>,
+  keyName: PropertyKey | undefined,
+  keyValue: PropertyKey,
+  hasNestedFields: boolean,
+): void {
+  // Skip groups whose root key is missing/null; for keyless grouping we always keep the object.
+  const hasKeyValue = keyName === undefined || obj[keyName] != null;
+  if (!hasKeyValue) {
+    return;
+  }
+
+  if (Array.isArray(result)) {
+    // In array mode, single-key selections emit the key value; otherwise emit full objects.
+    const shouldPushWholeObject = keyName === undefined || hasNestedFields;
+    result.push(shouldPushWholeObject ? obj : obj[keyName]);
+    return;
+  }
+
+  // In object mode without a root key, emit the aggregated object itself.
+  if (keyName === undefined) {
+    Object.assign(result, obj);
+    return;
+  }
+
+  // In object mode with a root key, group output by the computed key value.
+  result[keyValue] = obj;
+}
+
 /**
  * Groups rows by the provided key while preserving insertion order.
  */
-function groupByKey<T extends Row>(rows: T[], key: KeyName<T>): Map<unknown, T[]> {
+function groupByKey<T extends Row>(rows: T[], key?: KeyName<T>): Map<unknown, T[]> {
   const groups = new Map<unknown, T[]>();
   for (const row of rows) {
     const keyValue = key !== undefined ? row[key] : undefined;
@@ -99,7 +124,7 @@ function groupByKey<T extends Row>(rows: T[], key: KeyName<T>): Map<unknown, T[]
 /**
  * Resolves the source key from either shorthand or object field syntax.
  */
-function getKeyField<R, T extends Row>(field: Field<R, T>): KeyName<T> {
+function getKeyField<R, T extends Row>(field: Field<R, T>): KeyName<T> | undefined {
   if (Array.isArray(field)) {
     return undefined;
   }

@@ -75,6 +75,91 @@ const fields: Field<ResultObject, Input>[] = [
 ];
 
 describe("objectify", () => {
+  it("handles empty data", () => {
+    expect(objectify<ResultArray>([], fields)).toEqual([]);
+    expect(objectify<ResultObject>([], fields, true)).toEqual({});
+  });
+
+  it("handles empty fields", () => {
+    expect(objectify<ResultArray>(data, [])).toEqual([]);
+    expect(objectify<ResultObject>(data, [], true)).toEqual({});
+  });
+
+  it("handles group without fields", () => {
+    // @ts-expect-error - we want to test the behavior of the function
+    expect(objectify(data, ["id", ["rules"]])).toEqual([
+      { id: 222, rules: [] },
+      { id: 111, rules: [] },
+      { id: 444, rules: [] },
+      { id: 333, rules: [] },
+    ]);
+    expect(objectify(data, ["id", [{ name: "rules", object: true }, []]])).toEqual([
+      { id: 222, rules: {} },
+      { id: 111, rules: {} },
+      { id: 444, rules: {} },
+      { id: 333, rules: {} },
+    ]);
+  });
+
+  it("handles group with a single field", () => {
+    expect(objectify(data, [["rules", ["rule_id"]]])).toEqual([
+      {
+        rules: [1, 2, 5],
+      },
+    ]);
+    expect(objectify(data, [["rules", ["rule_id"]]], true)).toEqual({
+      rules: [1, 2, 5],
+    });
+  });
+
+  it("handles group without fields", () => {
+    expect(objectify(data, [["rules", []]])).toEqual([
+      {
+        rules: [],
+      },
+    ]);
+    expect(objectify(data, [["rules", []]], true)).toEqual({
+      rules: {},
+    });
+  });
+
+  it("handles group with nested group without fields", () => {
+    expect(objectify(data, [["rules", [["meters", []]]]])).toEqual([
+      {
+        rules: [{ meters: [] }],
+      },
+    ]);
+    expect(objectify(data, [["rules", [["meters", []]]]], true)).toEqual({
+      rules: { meters: {} },
+    });
+  });
+
+  it("handles group with nested group with a single field", () => {
+    expect(objectify(data, [["rules", [["meters", ["meter_id"]]]]])).toEqual([
+      {
+        rules: [{ meters: [5, 8, 6, 9, 10, 7, 4, 12] }],
+      },
+    ]);
+    expect(objectify(data, [["rules", [["meters", ["meter_id"]]]]], true)).toEqual({
+      rules: { meters: [5, 8, 6, 9, 10, 7, 4, 12] },
+    });
+  });
+
+  it("handles nested group with a single field", () => {
+    expect(objectify(data, ["id", ["rules", [["meters", ["meter_id"]]]]])).toEqual([
+      { id: 222, rules: [{ meters: [5, 6, 7] }] },
+      { id: 111, rules: [{ meters: [8, 9, 10, 12] }] },
+      { id: 444, rules: [{ meters: [4] }] },
+      { id: 333, rules: [{ meters: [] }] },
+    ]);
+    expect(objectify(data, ["id", ["rules", [["meters", ["meter_id"]]]]], true)).toEqual({
+      222: { id: 222, rules: { meters: [5, 6, 7] } },
+      111: { id: 111, rules: { meters: [8, 9, 10, 12] } },
+      444: { id: 444, rules: { meters: [4] } },
+      333: { id: 333, rules: { meters: [] } },
+    });
+  });
+
   it("builds nested arrays for rules, meters, and areas", () => {
     expect(objectify<ResultArray>(data, fields)).toEqual([
       {
@@ -205,6 +290,33 @@ describe("objectify", () => {
     });
   });
 
+  it("supports falsy root key values (0 and false)", () => {
+    type FalsyKeyInput = {
+      id: number | boolean;
+      value: string;
+    };
+
+    const arr: FalsyKeyInput[] = [
+      { id: 0, value: "zero" },
+      { id: false, value: "false" },
+      { id: 1, value: "one" },
+    ];
+
+    const fields: Field<FalsyKeyInput, FalsyKeyInput>[] = ["id", "value"];
+
+    expect(objectify(arr, fields)).toEqual([
+      { id: 0, value: "zero" },
+      { id: false, value: "false" },
+      { id: 1, value: "one" },
+    ]);
+
+    expect(objectify(arr, fields, true)).toEqual({
+      0: { id: 0, value: "zero" },
+      false: { id: false, value: "false" },
+      1: { id: 1, value: "one" },
+    });
+  });
+
   it("allow to group without a key field", () => {
     type Input = {
       eventType: string;
@@ -213,13 +325,24 @@ describe("objectify", () => {
     };
 
     type Result = {
-      totalEvents: { eventType: string; eventCount: number }[];
-      uniqueEvents: { eventType: string; uniqueCount: number }[];
+      totalEvents: { eventType: string; eventCount: number; uniques: number[]; totals: number[] }[];
+      uniqueEvents: {
+        eventType: string;
+        uniqueCount: number;
+        totals: number[];
+        uniques: number[];
+      }[];
     };
 
     const fields: Field<Result, Input>[] = [
-      ["totalEvents", ["eventType", "eventCount"]],
-      ["uniqueEvents", ["eventType", "uniqueCount"]],
+      [
+        "totalEvents",
+        ["eventType", "eventCount", ["uniques", ["uniqueCount"]], ["totals", ["eventCount"]]],
+      ],
+      [
+        "uniqueEvents",
+        ["eventType", "uniqueCount", ["totals", ["eventCount"]], ["uniques", ["uniqueCount"]]],
+      ],
     ];
 
     const data: Input[] = [
@@ -232,59 +355,78 @@ describe("objectify", () => {
     expect(objectify(data, fields)).toEqual([
       {
         totalEvents: [
-          { eventType: "click", eventCount: 10 },
-          { eventType: "view", eventCount: 20 },
+          { eventType: "click", eventCount: 10, uniques: [5, 15], totals: [10, 30] },
+          { eventType: "view", eventCount: 20, uniques: [10, 20], totals: [20, 40] },
         ],
         uniqueEvents: [
-          { eventType: "click", uniqueCount: 5 },
-          { eventType: "view", uniqueCount: 10 },
+          { eventType: "click", uniqueCount: 5, totals: [10, 30], uniques: [5, 15] },
+          { eventType: "view", uniqueCount: 10, totals: [20, 40], uniques: [10, 20] },
         ],
       },
     ]);
+
+    expect(objectify(data, fields, true)).toEqual({
+      totalEvents: {
+        click: { eventType: "click", eventCount: 10, uniques: [5, 15], totals: [10, 30] },
+        view: { eventType: "view", eventCount: 20, uniques: [10, 20], totals: [20, 40] },
+      },
+      uniqueEvents: {
+        click: { eventType: "click", uniqueCount: 5, totals: [10, 30], uniques: [5, 15] },
+        view: { eventType: "view", uniqueCount: 10, totals: [20, 40], uniques: [10, 20] },
+      },
+    });
   });
 
-  it("allow to group without a key field", () => {
-    type Input = {
-      eventType: string;
-      eventCount: number;
-      uniqueCount: number;
+  it("returns null when json=true and value is not a string", () => {
+    type JsonInput = {
+      id: number;
+      payload: unknown;
+    };
+    type JsonResult = {
+      id: number;
+      payload: { ok: boolean } | null;
     };
 
-    type Result = {
-      eventType: string;
-      eventCounts: number[];
-      uniqueCounts: number[];
-    };
-
-    const fields: Field<Result, Input>[] = [
-      "eventType",
-      ["eventCounts", ["eventCount"]],
-      ["uniqueCounts", ["uniqueCount"]],
+    const rows: JsonInput[] = [
+      { id: 1, payload: { ok: true } },
+      { id: 2, payload: 123 },
     ];
+    const fields: Field<JsonResult, JsonInput>[] = ["id", { key: "payload", json: true }];
 
-    const data: Input[] = [
-      { eventType: "click", eventCount: 10, uniqueCount: 5 },
-      { eventType: "view", eventCount: 20, uniqueCount: 10 },
-      { eventType: "click", eventCount: 30, uniqueCount: 15 },
-      { eventType: "view", eventCount: 40, uniqueCount: 20 },
-    ];
-
-    expect(objectify(data, fields)).toEqual([
-      {
-        eventType: "click",
-        eventCounts: [10, 30],
-        uniqueCounts: [5, 15],
-      },
-      {
-        eventType: "view",
-        eventCounts: [20, 40],
-        uniqueCounts: [10, 20],
-      },
+    expect(objectify(rows, fields)).toEqual([
+      { id: 1, payload: null },
+      { id: 2, payload: 123 },
     ]);
   });
 });
 
 describe("fieldsBuilder", () => {
+  it("builds fields with a single field", () => {
+    const fields2 = fieldsBuilder<ResultObject, Input>().field("id").build();
+    expect(fields2).toEqual(["id"]);
+  });
+
+  it("builds group with a single field", () => {
+    const fields2 = fieldsBuilder<ResultObject, Input>()
+      .group("rules", (g) => g.field("rule_id"))
+      .build();
+    expect(fields2).toEqual([["rules", ["rule_id"]]]);
+  });
+
+  it("builds group without fields", () => {
+    const fields2 = fieldsBuilder<ResultObject, Input>()
+      .group("rules", (g) => g)
+      .build();
+    expect(fields2).toEqual([["rules", []]]);
+  });
+
+  it("builds group with nested group without fields", () => {
+    const fields2 = fieldsBuilder<ResultObject, Input>()
+      .group("rules", (g) => g.group("meters", (g) => g))
+      .build();
+    expect(fields2).toEqual([["rules", [["meters", []]]]]);
+  });
+
   it("builds fields with plain keys", () => {
     const fields2 = fieldsBuilder<ResultObject, Input>()
       .field("id", "area_id")
@@ -378,5 +520,20 @@ describe("fieldsBuilder", () => {
       ["totalEvents", [{ key: "eventType", as: "event" }, "eventCount"]],
       ["uniqueEvents", [{ key: "eventType", as: "event" }, "uniqueCount"]],
     ]);
+  });
+
+  it("keeps empty-string alias values", () => {
+    const fields2 = fieldsBuilder().field("id", "").build();
+    expect(fields2).toEqual([{ key: "id", as: "" }]);
+  });
+
+  it("returns a snapshot from build()", () => {
+    const builder = fieldsBuilder<ResultObject, Input>().field("id");
+    const first = builder.build();
+    builder.field("name");
+    const second = builder.build();
+
+    expect(first).toEqual(["id"]);
+    expect(second).toEqual(["id", "name"]);
   });
 });
