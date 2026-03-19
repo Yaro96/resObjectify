@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { fieldsBuilder } from "../src/fieldsBuilder";
 import { objectify } from "../src/objectify";
 import type { Field } from "../types";
 
@@ -375,6 +374,38 @@ describe("objectify", () => {
         view: { eventType: "view", uniqueCount: 10, totals: [20, 40], uniques: [10, 20] },
       },
     });
+
+    const fieldsHidden: Field<Result, Input>[] = [
+      [
+        "totalEvents",
+        [
+          { key: "eventType", hide: true },
+          "eventCount",
+          ["uniques", ["uniqueCount"]],
+          ["totals", ["eventCount"]],
+        ],
+      ],
+      [
+        "uniqueEvents",
+        [
+          { key: "eventType", hide: true },
+          "uniqueCount",
+          ["totals", ["eventCount"]],
+          ["uniques", ["uniqueCount"]],
+        ],
+      ],
+    ];
+
+    expect(objectify(data, fieldsHidden, true)).toEqual({
+      totalEvents: {
+        click: { eventCount: 10, uniques: [5, 15], totals: [10, 30] },
+        view: { eventCount: 20, uniques: [10, 20], totals: [20, 40] },
+      },
+      uniqueEvents: {
+        click: { uniqueCount: 5, totals: [10, 30], uniques: [5, 15] },
+        view: { uniqueCount: 10, totals: [20, 40], uniques: [10, 20] },
+      },
+    });
   });
 
   it("omits a hidden field from the output", () => {
@@ -392,9 +423,31 @@ describe("objectify", () => {
       { id: 1, name: "Alice" },
       { id: 2, name: "Bob" },
     ]);
+
+    expect(objectify(rows, fields, true)).toEqual({
+      1: { id: 1, name: "Alice" },
+      2: { id: 2, name: "Bob" },
+    });
   });
 
   it("omits a hidden key field from output but still groups rows by it", () => {
+    type Row = { category: string; value: number };
+    const rows: Row[] = [
+      { category: "A", value: 10 },
+      { category: "A", value: 30 },
+      { category: "B", value: 20 },
+    ];
+
+    const fields: Field[] = [{ key: "category", hide: true }, ["values", ["value"]]];
+    expect(objectify(rows, fields)).toEqual([{ values: [10, 30] }, { values: [20] }]);
+
+    expect(objectify(rows, fields, true)).toEqual({
+      A: { values: [10, 30] },
+      B: { values: [20] },
+    });
+  });
+
+  it("uses a hidden key field for object keys when object=true", () => {
     type HideKeyInput = { category: string; value: number };
     type HideKeyResult = { value: number };
 
@@ -407,8 +460,11 @@ describe("objectify", () => {
 
     const fields: Field<HideKeyResult, HideKeyInput>[] = [{ key: "category", hide: true }, "value"];
 
-    // Rows are grouped by category, but category does not appear in output
-    expect(objectify(rows, fields)).toEqual([{ value: 1 }, { value: 2 }, { value: 4 }]);
+    expect(objectify(rows, fields, true)).toEqual({
+      a: { value: 1 },
+      b: { value: 2 },
+      c: { value: 4 },
+    });
   });
 
   it("omits a hidden field inside a nested group", () => {
@@ -433,6 +489,34 @@ describe("objectify", () => {
       { id: 1, rules: [{ formula: "x" }, { formula: "y" }] },
       { id: 2, rules: [{ formula: "z" }] },
     ]);
+
+    expect(objectify(rows, fields, true)).toEqual({
+      1: { id: 1, rules: { 10: { formula: "x" }, 20: { formula: "y" } } },
+      2: { id: 2, rules: { 10: { formula: "z" } } },
+    });
+  });
+
+  it("handles a hidden key field in a nested group", () => {
+    const rows = [
+      { id: 1, rule_id: 10, formula: "x" },
+      { id: 1, rule_id: 20, formula: "y" },
+      { id: 2, rule_id: 10, formula: "z" },
+    ];
+
+    const fields: Field[] = [
+      "id",
+      [{ name: "rules", object: false }, [{ key: "rule_id", hide: true }, "formula"]],
+    ];
+
+    expect(objectify(rows, fields)).toEqual([
+      { id: 1, rules: [{ formula: "x" }, { formula: "y" }] },
+      { id: 2, rules: [{ formula: "z" }] },
+    ]);
+
+    expect(objectify(rows, fields, true)).toEqual({
+      1: { id: 1, rules: [{ formula: "x" }, { formula: "y" }] },
+      2: { id: 2, rules: [{ formula: "z" }] },
+    });
   });
 
   it("returns null when json=true and value is not a string", () => {

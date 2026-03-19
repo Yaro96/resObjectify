@@ -61,7 +61,7 @@ export function objectify<R = unknown>(
           : objectify(rows, nestedFields, false);
 
         // If the field is not an array, it is a key field, so we can get the value from the row
-      } else if (fieldName !== undefined) {
+      } else if (fieldName !== undefined && fieldName !== null) {
         obj[fieldName] = getFieldValue(row, field);
       }
     }
@@ -77,19 +77,19 @@ export function objectify<R = unknown>(
 function appendToResult(
   result: unknown[] | Record<PropertyKey, unknown>,
   obj: Record<PropertyKey, unknown>,
-  keyName: PropertyKey | undefined,
+  keyName: PropertyKey | null | undefined,
   keyValue: PropertyKey,
   hasNestedFields: boolean,
 ): void {
-  // Skip groups whose root key is missing/null; for keyless grouping we always keep the object.
-  const hasKeyValue = keyName === undefined || obj[keyName] != null;
+  // Skip if key name is undefined (keyless grouping) or key value is null/undefined.
+  const hasKeyValue = keyName === undefined || keyValue != null;
   if (!hasKeyValue) {
     return;
   }
 
   if (Array.isArray(result)) {
-    // In array mode, single-key selections emit the key value; otherwise emit full objects.
-    const shouldPushWholeObject = keyName === undefined || hasNestedFields;
+    // In array mode, single visible key selections emit key value; otherwise emit full objects.
+    const shouldPushWholeObject = keyName === undefined || keyName === null || hasNestedFields;
     result.push(shouldPushWholeObject ? obj : obj[keyName]);
     return;
   }
@@ -134,12 +134,12 @@ function getKeyField<R, T extends Row>(field: Field<R, T>): KeyName<T> | undefin
 /**
  * Resolves the output property name for a key field.
  */
-function getFieldName<R, T extends Row>(field: Field<R, T>): PropertyKey | undefined {
+function getFieldName<R, T extends Row>(field: Field<R, T>): PropertyKey | null | undefined {
   if (Array.isArray(field)) {
     return undefined;
   }
   if (typeof field !== "string" && field?.hide) {
-    return undefined;
+    return null;
   }
   return (typeof field === "string" ? field : (field?.as ?? field?.key)) as PropertyKey;
 }
