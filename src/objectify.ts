@@ -138,6 +138,9 @@ function getFieldName<R, T extends Row>(field: Field<R, T>): PropertyKey | undef
   if (Array.isArray(field)) {
     return undefined;
   }
+  if (typeof field !== "string" && field?.hide) {
+    return undefined;
+  }
   return (typeof field === "string" ? field : (field?.as ?? field?.key)) as PropertyKey;
 }
 

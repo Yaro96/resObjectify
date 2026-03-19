@@ -377,6 +377,66 @@ describe("objectify", () => {
     });
   });
 
+  it("omits a hidden field from the output", () => {
+    type HideInput = { id: number; secret: string; name: string };
+    type HideResult = { id: number; name: string };
+
+    const rows: HideInput[] = [
+      { id: 1, secret: "abc", name: "Alice" },
+      { id: 2, secret: "xyz", name: "Bob" },
+    ];
+
+    const fields: Field<HideResult, HideInput>[] = ["id", { key: "secret", hide: true }, "name"];
+
+    expect(objectify(rows, fields)).toEqual([
+      { id: 1, name: "Alice" },
+      { id: 2, name: "Bob" },
+    ]);
+  });
+
+  it("omits a hidden key field from output but still groups rows by it", () => {
+    type HideKeyInput = { category: string; value: number };
+    type HideKeyResult = { value: number };
+
+    const rows: HideKeyInput[] = [
+      { category: "a", value: 1 },
+      { category: "b", value: 2 },
+      { category: "a", value: 3 },
+    ];
+
+    const fields: Field<HideKeyResult, HideKeyInput>[] = [
+      { key: "category", hide: true },
+      "value",
+    ];
+
+    // Rows are grouped by category, but category does not appear in output
+    expect(objectify(rows, fields)).toEqual([{ value: 1 }, { value: 2 }]);
+  });
+
+  it("omits a hidden field inside a nested group", () => {
+    type NestedHideInput = { id: number; rule_id: number; formula: string | null };
+    type NestedHideResult = {
+      id: number;
+      rules: { formula: string | null }[];
+    };
+
+    const rows: NestedHideInput[] = [
+      { id: 1, rule_id: 10, formula: "x" },
+      { id: 1, rule_id: 20, formula: "y" },
+      { id: 2, rule_id: 10, formula: "z" },
+    ];
+
+    const fields: Field<NestedHideResult, NestedHideInput>[] = [
+      "id",
+      ["rules", [{ key: "rule_id", hide: true }, "formula"]],
+    ];
+
+    expect(objectify(rows, fields)).toEqual([
+      { id: 1, rules: [{ formula: "x" }, { formula: "y" }] },
+      { id: 2, rules: [{ formula: "z" }] },
+    ]);
+  });
+
   it("returns null when json=true and value is not a string", () => {
     type JsonInput = {
       id: number;
@@ -520,6 +580,24 @@ describe("fieldsBuilder", () => {
       ["totalEvents", [{ key: "eventType", as: "event" }, "eventCount"]],
       ["uniqueEvents", [{ key: "eventType", as: "event" }, "uniqueCount"]],
     ]);
+  });
+
+  it("builds a hidden field via shorthand options", () => {
+    const fields2 = fieldsBuilder().field("id", { hide: true }).build();
+    expect(fields2).toEqual([{ key: "id", hide: true }]);
+  });
+
+  it("builds a hidden field via object form", () => {
+    const fields2 = fieldsBuilder().field({ key: "id", hide: true }).build();
+    expect(fields2).toEqual([{ key: "id", hide: true }]);
+  });
+
+  it("builds a hidden field combined with as and json", () => {
+    const fields2 = fieldsBuilder()
+      .field("id", { hide: true })
+      .field("meta", { json: true })
+      .build();
+    expect(fields2).toEqual([{ key: "id", hide: true }, { key: "meta", json: true }]);
   });
 
   it("keeps empty-string alias values", () => {
