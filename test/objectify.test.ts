@@ -484,6 +484,53 @@ describe("objectify", () => {
     });
   });
 
+  it("supports multi-key grouping inside a nested group", () => {
+    const rows = [
+      { brand: "Acme", city: "NY", day: "Mon", orderId: 10 },
+      { brand: "Acme", city: "NY", day: "Mon", orderId: 11 },
+      { brand: "Acme", city: "NY", day: "Tue", orderId: 12 },
+      { brand: "Acme", city: "SF", day: "Mon", orderId: 13 },
+      { brand: "Acme", city: "SF", day: "Mon", orderId: 14 },
+      { brand: "Beta", city: "NY", day: "Mon", orderId: 20 },
+      { brand: "Beta", city: null, day: "Mon", orderId: 21 },
+      { brand: "Beta", city: "NY", day: "Tue", orderId: 22 },
+      { brand: "Beta", city: "LA", day: "Mon", orderId: 23 },
+      { brand: "Gamma", city: "LA", day: "Mon", orderId: 30 },
+      { brand: "Gamma", city: "LA", day: null, orderId: 31 },
+    ];
+
+    const fields: Field[] = [
+      "brand",
+      [
+        "windows",
+        [{ keys: ["city", "day"], as: "window", separator: "@" }, ["orderIds", ["orderId"]]],
+      ],
+    ];
+
+    expect(objectify(rows, fields)).toEqual([
+      {
+        brand: "Acme",
+        windows: [
+          { window: "NY@Mon", orderIds: [10, 11] },
+          { window: "NY@Tue", orderIds: [12] },
+          { window: "SF@Mon", orderIds: [13, 14] },
+        ],
+      },
+      {
+        brand: "Beta",
+        windows: [
+          { window: "NY@Mon", orderIds: [20] },
+          { window: "NY@Tue", orderIds: [22] },
+          { window: "LA@Mon", orderIds: [23] },
+        ],
+      },
+      {
+        brand: "Gamma",
+        windows: [{ window: "LA@Mon", orderIds: [30] }],
+      },
+    ]);
+  });
+
   it("omits a hidden field from the output", () => {
     type HideInput = { id: number; secret: string; name: string };
     type HideResult = { id: number; name: string };
