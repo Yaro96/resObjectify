@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { fieldsBuilder } from "../src/fieldsBuilder";
 import { objectify } from "../src/objectify";
 import type { Field } from "../types";
 
@@ -375,6 +374,149 @@ describe("objectify", () => {
         view: { eventType: "view", uniqueCount: 10, totals: [20, 40], uniques: [10, 20] },
       },
     });
+
+    const fieldsHidden: Field<Result, Input>[] = [
+      [
+        "totalEvents",
+        [
+          { key: "eventType", hide: true },
+          "eventCount",
+          ["uniques", ["uniqueCount"]],
+          ["totals", ["eventCount"]],
+        ],
+      ],
+      [
+        "uniqueEvents",
+        [
+          { key: "eventType", hide: true },
+          "uniqueCount",
+          ["totals", ["eventCount"]],
+          ["uniques", ["uniqueCount"]],
+        ],
+      ],
+    ];
+
+    expect(objectify(data, fieldsHidden, true)).toEqual({
+      totalEvents: {
+        click: { eventCount: 10, uniques: [5, 15], totals: [10, 30] },
+        view: { eventCount: 20, uniques: [10, 20], totals: [20, 40] },
+      },
+      uniqueEvents: {
+        click: { uniqueCount: 5, totals: [10, 30], uniques: [5, 15] },
+        view: { uniqueCount: 10, totals: [20, 40], uniques: [10, 20] },
+      },
+    });
+  });
+
+  it("omits a hidden field from the output", () => {
+    type HideInput = { id: number; secret: string; name: string };
+    type HideResult = { id: number; name: string };
+
+    const rows: HideInput[] = [
+      { id: 1, secret: "abc", name: "Alice" },
+      { id: 2, secret: "xyz", name: "Bob" },
+    ];
+
+    const fields: Field<HideResult, HideInput>[] = ["id", { key: "secret", hide: true }, "name"];
+
+    expect(objectify(rows, fields)).toEqual([
+      { id: 1, name: "Alice" },
+      { id: 2, name: "Bob" },
+    ]);
+
+    expect(objectify(rows, fields, true)).toEqual({
+      1: { id: 1, name: "Alice" },
+      2: { id: 2, name: "Bob" },
+    });
+  });
+
+  it("omits a hidden key field from output but still groups rows by it", () => {
+    type Row = { category: string; value: number };
+    const rows: Row[] = [
+      { category: "A", value: 10 },
+      { category: "A", value: 30 },
+      { category: "B", value: 20 },
+    ];
+
+    const fields: Field[] = [{ key: "category", hide: true }, ["values", ["value"]]];
+    expect(objectify(rows, fields)).toEqual([{ values: [10, 30] }, { values: [20] }]);
+
+    expect(objectify(rows, fields, true)).toEqual({
+      A: { values: [10, 30] },
+      B: { values: [20] },
+    });
+  });
+
+  it("uses a hidden key field for object keys when object=true", () => {
+    type HideKeyInput = { category: string; value: number };
+    type HideKeyResult = { value: number };
+
+    const rows: HideKeyInput[] = [
+      { category: "a", value: 1 },
+      { category: "b", value: 2 },
+      { category: "a", value: 3 },
+      { category: "c", value: 4 },
+    ];
+
+    const fields: Field<HideKeyResult, HideKeyInput>[] = [{ key: "category", hide: true }, "value"];
+
+    expect(objectify(rows, fields, true)).toEqual({
+      a: { value: 1 },
+      b: { value: 2 },
+      c: { value: 4 },
+    });
+  });
+
+  it("omits a hidden field inside a nested group", () => {
+    type NestedHideInput = { id: number; rule_id: number; formula: string | null };
+    type NestedHideResult = {
+      id: number;
+      rules: { formula: string | null }[];
+    };
+
+    const rows: NestedHideInput[] = [
+      { id: 1, rule_id: 10, formula: "x" },
+      { id: 1, rule_id: 20, formula: "y" },
+      { id: 2, rule_id: 10, formula: "z" },
+    ];
+
+    const fields: Field<NestedHideResult, NestedHideInput>[] = [
+      "id",
+      ["rules", [{ key: "rule_id", hide: true }, "formula"]],
+    ];
+
+    expect(objectify(rows, fields)).toEqual([
+      { id: 1, rules: [{ formula: "x" }, { formula: "y" }] },
+      { id: 2, rules: [{ formula: "z" }] },
+    ]);
+
+    expect(objectify(rows, fields, true)).toEqual({
+      1: { id: 1, rules: { 10: { formula: "x" }, 20: { formula: "y" } } },
+      2: { id: 2, rules: { 10: { formula: "z" } } },
+    });
+  });
+
+  it("handles a hidden key field in a nested group", () => {
+    const rows = [
+      { id: 1, rule_id: 10, formula: "x" },
+      { id: 1, rule_id: 20, formula: "y" },
+      { id: 2, rule_id: 10, formula: "z" },
+    ];
+
+    const fields: Field[] = [
+      "id",
+      [{ name: "rules", object: false }, [{ key: "rule_id", hide: true }, "formula"]],
+    ];
+
+    expect(objectify(rows, fields)).toEqual([
+      { id: 1, rules: [{ formula: "x" }, { formula: "y" }] },
+      { id: 2, rules: [{ formula: "z" }] },
+    ]);
+
+    expect(objectify(rows, fields, true)).toEqual({
+      1: { id: 1, rules: [{ formula: "x" }, { formula: "y" }] },
+      2: { id: 2, rules: [{ formula: "z" }] },
+    });
   });
 
   it("returns null when json=true and value is not a string", () => {
@@ -397,143 +539,5 @@ describe("objectify", () => {
       { id: 1, payload: null },
       { id: 2, payload: 123 },
     ]);
-  });
-});
-
-describe("fieldsBuilder", () => {
-  it("builds fields with a single field", () => {
-    const fields2 = fieldsBuilder<ResultObject, Input>().field("id").build();
-    expect(fields2).toEqual(["id"]);
-  });
-
-  it("builds group with a single field", () => {
-    const fields2 = fieldsBuilder<ResultObject, Input>()
-      .group("rules", (g) => g.field("rule_id"))
-      .build();
-    expect(fields2).toEqual([["rules", ["rule_id"]]]);
-  });
-
-  it("builds group without fields", () => {
-    const fields2 = fieldsBuilder<ResultObject, Input>()
-      .group("rules", (g) => g)
-      .build();
-    expect(fields2).toEqual([["rules", []]]);
-  });
-
-  it("builds group with nested group without fields", () => {
-    const fields2 = fieldsBuilder<ResultObject, Input>()
-      .group("rules", (g) => g.group("meters", (g) => g))
-      .build();
-    expect(fields2).toEqual([["rules", [["meters", []]]]]);
-  });
-
-  it("builds fields with plain keys", () => {
-    const fields2 = fieldsBuilder<ResultObject, Input>()
-      .field("id", "area_id")
-      .field("code", "area_code")
-      .field("name")
-      .field("meta", { json: true })
-      .group("rules", (g) =>
-        g
-          .field("rule_id")
-          .field("formula", "rule")
-          .group("meters", { object: true }, (g) => g.field("meter_id"))
-          .group("areas", { object: false }, (g) => g.field("area_id")),
-      )
-      .build();
-
-    expect(fields2).toEqual(fields);
-  });
-
-  it("builds fields without strict typing", () => {
-    const fields2 = fieldsBuilder()
-      .field("id", "area_id")
-      .field("code", "area_code")
-      .field("name")
-      .field("meta", { json: true })
-      .group("rules", (g) =>
-        g
-          .field("rule_id")
-          .field("formula", "rule")
-          .group("meters", { object: true }, (g) => g.field("meter_id"))
-          .group("areas", { object: false }, (g) => g.field("area_id")),
-      )
-      .build();
-
-    expect(fields2).toEqual(fields);
-  });
-
-  it("builds fields with object parameters", () => {
-    const fields2 = fieldsBuilder()
-      .field({ key: "id", as: "area_id" })
-      .field({ key: "code", as: "area_code" })
-      .field("name")
-      .field({ key: "meta", json: true })
-      .group("rules", (g) =>
-        g
-          .field("rule_id")
-          .field({ key: "formula", as: "rule" })
-          .group({ name: "meters", object: true }, (g) => g.field("meter_id"))
-          .group({ name: "areas", object: false }, (g) => g.field("area_id")),
-      )
-      .build();
-
-    expect(fields2).toEqual(fields);
-  });
-
-  it("builds fields with only result type", () => {
-    const fields2 = fieldsBuilder<ResultArray>()
-      .field("id", "area_id")
-      .field("code", "area_code")
-      .field("name")
-      .field("meta", { json: true })
-      .group("rules", (g) =>
-        g
-          .field("rule_id")
-          .field("formula", "rule")
-          .group("meters", { object: true }, (g) => g.field("meter_id"))
-          .group("areas", { object: false }, (g) => g.field("area_id")),
-      )
-      .build();
-
-    expect(fields2).toEqual(fields);
-  });
-
-  it("builds fields without a key field", () => {
-    type Input = {
-      eventType: string;
-      eventCount: number;
-      uniqueCount: number;
-    };
-
-    type Result = {
-      totalEvents: { event: string; eventCount: number }[];
-      uniqueEvents: { event: string; uniqueCount: number }[];
-    };
-
-    const fields2 = fieldsBuilder<Result, Input>()
-      .group("totalEvents", (g) => g.field("eventType", "event").field("eventCount"))
-      .group("uniqueEvents", (g) => g.field("eventType", "event").field("uniqueCount"))
-      .build();
-
-    expect(fields2).toEqual([
-      ["totalEvents", [{ key: "eventType", as: "event" }, "eventCount"]],
-      ["uniqueEvents", [{ key: "eventType", as: "event" }, "uniqueCount"]],
-    ]);
-  });
-
-  it("keeps empty-string alias values", () => {
-    const fields2 = fieldsBuilder().field("id", "").build();
-    expect(fields2).toEqual([{ key: "id", as: "" }]);
-  });
-
-  it("returns a snapshot from build()", () => {
-    const builder = fieldsBuilder<ResultObject, Input>().field("id");
-    const first = builder.build();
-    builder.field("name");
-    const second = builder.build();
-
-    expect(first).toEqual(["id"]);
-    expect(second).toEqual(["id", "name"]);
   });
 });

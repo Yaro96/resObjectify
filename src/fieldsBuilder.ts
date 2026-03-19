@@ -22,7 +22,9 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
     options?: KeyFieldOptions,
   ) => {
     const isOptions =
-      typeof asOrOptions === "object" && asOrOptions !== null && "json" in asOrOptions;
+      typeof asOrOptions === "object" &&
+      asOrOptions !== null &&
+      ("json" in asOrOptions || "hide" in asOrOptions);
     const resolvedAs = isOptions ? undefined : (asOrOptions as PropertyKey);
     const resolvedOptions = isOptions ? asOrOptions : options;
 

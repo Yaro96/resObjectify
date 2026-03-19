@@ -1,6 +1,6 @@
 {
   "name": "resobjectify",
-  "version": "2.1.2",
+  "version": "2.1.3",
   "description": "Parse an array of one dimensional objects to nested array/object",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

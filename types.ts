@@ -99,6 +99,7 @@ export type KeyField<R = Row, T = Row> =
       key: KeyName<T>;
       as?: LeafKeys<R>;
       json?: boolean;
+      hide?: boolean;
     };
 
 /**
@@ -131,6 +132,7 @@ export type Field<R = Row, T = Row> = KeyField<R, T> | [GroupField<R>, Field<R, 
  */
 export type KeyFieldOptions = {
   json?: boolean;
+  hide?: boolean;
 };
 
 /**
