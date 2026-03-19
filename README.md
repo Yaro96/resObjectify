@@ -19,7 +19,7 @@ npm install resobjectify
 ## Import
 
 ```ts
-import { objectify, fieldsBuilder, type Fields } from "resobjectify";
+import { objectify, fieldsBuilder, type Field } from "resobjectify";
 ```
 
 ## API At A Glance
@@ -31,12 +31,12 @@ fieldsBuilder().field(...).group(...).build();
 
 - `objectify(data, fields)` returns arrays by default.
 - `objectify(data, fields, true)` returns an object map keyed by the first field.
-- `fieldsBuilder` builds the same `Fields` tuple structure as writing arrays manually.
+- `fieldsBuilder` builds the same `Field[]` tuple structure as writing arrays manually.
 
 ## Quick Example
 
 ```ts
-import { objectify, type Fields } from "resobjectify";
+import { objectify, type Field } from "resobjectify";
 
 type Row = {
   order_id: number;
@@ -59,7 +59,7 @@ const rows: Row[] = [
   { order_id: 2, customer: "Beta", item_id: null },
 ];
 
-const fields: Fields<Result, Row> = [
+const fields: Field<Result, Row>[] = [
   { key: "order_id", as: "id" },
   "customer",
   [
@@ -134,7 +134,7 @@ const mapped = objectify<Result, Row>(rows, fields, true);
 Override a nested group mode with `{ object: false }` (or `{ object: true }`):
 
 ```ts
-const fieldsWithArrayItems: Fields<Result, Row> = [
+const fieldsWithArrayItems: Field<Result, Row>[] = [
   { key: "order_id", as: "id" },
   "customer",
   [
@@ -155,17 +155,17 @@ If a level contains only one field, that level is always emitted as an array.
 
 ## Using `fieldsBuilder`
 
-`fieldsBuilder` is a fluent helper to build the same `Fields` structure without manually writing nested arrays.
+`fieldsBuilder` is a fluent helper to build the same `Field[]` structure without manually writing nested arrays.
 
 How it works:
 
 - `field("key")` adds a key field.
 - `field("key", "alias")` adds a renamed key field.
-- `field("key", { json: true | false })` adds options without alias.
-- `field("key", "alias", { json: true | false })` combines alias + options.
+- `field("key", { json: true | false, hide: true | false })` adds options without alias.
+- `field("key", "alias", { json: true | false, hide: true | false })` combines alias + options.
 - `group(name, callback)` starts a nested level.
 - `group(name, { object: true | false }, callback)` overrides output mode for that group.
-- `build()` returns the final `Fields` tuple you pass to `objectify`.
+- `build()` returns the final `Field[]` tuple you pass to `objectify`.
 
 ```ts
 const built = fieldsBuilder<Result, Row>()
@@ -175,6 +175,7 @@ const built = fieldsBuilder<Result, Row>()
     g.field("item_id", "id")
     .field("item_name", "name")
     .field("qty")
+    .field("meta", { json: true })
   ).build();
 ```
 
@@ -189,8 +190,57 @@ const built = fieldsBuilder<Result, Row>()
       { key: "item_id", as: "id" },
       { key: "item_name", as: "name" },
       "qty"
+      { key: "meta", json: true }
     ]
   ],
+];
+```
+
+## Grouping Without A Root Key
+
+You can start `fields` directly with groups, without a top-level key field.
+This is useful when you want one aggregated object with grouped data.
+
+```ts
+const rows = [
+  { type: "A", count: 10, uniqueCount: 5 },
+  { type: "B", count: 20, uniqueCount: 10 },
+  { type: "A", count: 30, uniqueCount: 15 },
+];
+
+const fields: Field[] = [
+  ["totalEvents", ["type", ["counts", ["count"]]]],
+  ["uniqueEvents", ["type", ["uniques", ["uniqueCount"]]]],
+];
+//or with fieldsBuilder
+const builtFields = fieldsBuilder()
+  .group("totalEvents", (g) =>
+    g
+      .field("type")
+      .group("counts", (g1) => g1.field("count"))
+  ).group("uniqueEvents", (g) =>
+    g
+      .field("type")
+      .group("uniques", (g1) => g1.field("uniqueCount"))
+  ).build();
+
+const result = objectify(rows, fields);
+```
+
+`result`:
+
+```ts
+[
+  {
+    totalEvents: [
+      { type: "A", counts: [10, 30] },
+      { type: "B", counts: [20] },
+    ],
+    uniqueEvents: [
+      { type: "A", uniques: [5, 15] },
+      { type: "B", uniques: [10] },
+    ],
+  },
 ];
 ```
 
@@ -208,7 +258,7 @@ const metaRows: MetaRow[] = [
   { id: 3, meta: "bad-json" },
 ];
 
-const metaFields: Fields<MetaResult, MetaRow> = ["id", { key: "meta", json: true }];
+const metaFields: Field<MetaResult, MetaRow>[] = ["id", { key: "meta", json: true }];
 const parsed = objectify<MetaResult, MetaRow>(metaRows, metaFields);
 ```
 
@@ -223,3 +273,43 @@ const parsed = objectify<MetaResult, MetaRow>(metaRows, metaFields);
 ```
 
 With `json: true`, invalid JSON values are converted to `null` and a parsing error is logged.
+
+## Hide Fields
+
+`hide: true` is mainly useful when a field should be used as the grouping key, but should not appear in the output object.
+
+```ts
+type Row = { category: string; value: number };
+const rows: Row[] = [
+  { category: "A", value: 10 },
+  { category: "A", value: 30 },
+  { category: "B", value: 20 },
+];
+
+const fields: Field[] = [{ key: "category", hide: true }, ["values", ["value"]]];
+const result = objectify(rows, fields);
+```
+
+`result`:
+
+```ts
+[
+  { values: [10, 30] },
+  { values: [20] },
+];
+```
+
+With `object: true`, the hidden key would still be used for top-level mapping:
+
+```ts
+const mapped = objectify(rows, fields, true);
+```
+
+`mapped`:
+
+```ts
+{
+  A: { values: [10, 30] },
+  B: { values: [20] },
+}
+```

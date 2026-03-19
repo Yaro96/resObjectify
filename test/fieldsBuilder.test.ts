@@ -170,12 +170,12 @@ describe("fieldsBuilder", () => {
     };
 
     const fields2 = fieldsBuilder<Result, Input>()
-      .group("totalEvents", (g) => g.field("eventType", "event").field("eventCount"))
+      .group("totalEvents", { object: false }, (g) => g.field("eventType", "event").field("eventCount"))
       .group("uniqueEvents", (g) => g.field("eventType", "event").field("uniqueCount"))
       .build();
 
     expect(fields2).toEqual([
-      ["totalEvents", [{ key: "eventType", as: "event" }, "eventCount"]],
+      [{ name: "totalEvents", object: false }, [{ key: "eventType", as: "event" }, "eventCount"]],
       ["uniqueEvents", [{ key: "eventType", as: "event" }, "uniqueCount"]],
     ]);
   });
