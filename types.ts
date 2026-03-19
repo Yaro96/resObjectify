@@ -90,17 +90,28 @@ export type Prettify<T> = {
  */
 export type Result<T = unknown> = T[] | Record<PropertyKey, T>;
 
+export type SingleField<R = Row, T = Row> = {
+  key: KeyName<T>;
+  as?: LeafKeys<R>;
+  json?: boolean;
+  hide?: boolean;
+};
+
+export type CombinedField<R = Row, T = Row> = {
+  keys: KeyName<T>[];
+  as: LeafKeys<R>;
+  separator?: string;
+  hide?: boolean;
+};
+
 /**
  * Selects a source key from a row and optional output behavior.
  */
-export type KeyField<R = Row, T = Row> =
-  | KeyName<T>
-  | {
-      key: KeyName<T>;
-      as?: LeafKeys<R>;
-      json?: boolean;
-      hide?: boolean;
-    };
+export type KeyField<R = Row, T = Row> = KeyName<T> | SingleField<R, T> | CombinedField<R, T>;
+
+export type SimpleKeyField =
+  | { key: DefaultString; as?: DefaultString; json?: boolean; hide?: boolean }
+  | { keys: DefaultString[]; as: DefaultString; separator?: string; hide?: boolean };
 
 /**
  * Describes a nested group in the output object.

@@ -1,4 +1,15 @@
-import type { Field, KeyField, KeyName, Prettify, Result, Row, SimpleGroupField } from "../types";
+import type {
+  CombinedField,
+  Field,
+  KeyField,
+  KeyName,
+  Prettify,
+  Result,
+  Row,
+  SimpleGroupField,
+  SimpleKeyField,
+  SingleField,
+} from "../types";
 
 /**
  * Transforms flat rows into nested objects/arrays based on a field definition.
@@ -36,14 +47,15 @@ export function objectify<R = unknown>(
   }
 
   const [keyField, ...restFields] = fields;
-  const key = getKeyField(keyField);
+  const key = getFieldKey(keyField);
   const name = getFieldName(keyField);
+  const separator = getFieldSeparator(keyField);
   // Keep single root-key selections as arrays, but allow keyless group-only selections to be objects in object mode.
   const shouldUseObjectResult = object && (fields.length > 1 || name === undefined);
   const result: unknown[] | Record<PropertyKey, unknown> = shouldUseObjectResult ? {} : [];
   // Pre-group by the current key so each recursion only sees its parent slice,
   // which removes the need for parent checks or duplicate tracking.
-  const groups = groupByKey(data, key);
+  const groups = groupByKey(data, key, separator);
 
   for (const [keyValue, rows] of groups) {
     const row = rows[0];
@@ -107,10 +119,14 @@ function appendToResult(
 /**
  * Groups rows by the provided key while preserving insertion order.
  */
-function groupByKey<T extends Row>(rows: T[], key?: KeyName<T>): Map<unknown, T[]> {
+function groupByKey<T extends Row>(
+  rows: T[],
+  key?: KeyName<T> | KeyName<T>[],
+  separator?: string,
+): Map<unknown, T[]> {
   const groups = new Map<unknown, T[]>();
   for (const row of rows) {
-    const keyValue = key !== undefined ? row[key] : undefined;
+    const keyValue = getKeyValue(row, key, separator);
     const group = groups.get(keyValue);
     if (group) {
       group.push(row);
@@ -121,14 +137,50 @@ function groupByKey<T extends Row>(rows: T[], key?: KeyName<T>): Map<unknown, T[
   return groups;
 }
 
+function getKeyValue<T extends Row>(
+  row: T,
+  key?: KeyName<T> | KeyName<T>[],
+  separator: string = "|",
+): unknown {
+  if (key === undefined || key === null) {
+    return undefined;
+  }
+  if (Array.isArray(key)) {
+    let combinedKey = "";
+    for (const k of key) {
+      const value = row[k];
+      // Keep existing skip semantics for missing grouping values.
+      if (value == null) {
+        return undefined;
+      }
+      combinedKey += `${String(value)}${separator}`;
+    }
+    return combinedKey.slice(0, -separator.length);
+  }
+  return row[key];
+}
+
 /**
  * Resolves the source key from either shorthand or object field syntax.
  */
-function getKeyField<R, T extends Row>(field: Field<R, T>): KeyName<T> | undefined {
+function getFieldKey<R, T extends Row>(field: Field<R, T>): KeyName<T> | KeyName<T>[] | undefined {
   if (Array.isArray(field)) {
     return undefined;
   }
-  return typeof field === "string" ? field : field?.key;
+  if (typeof field === "string") {
+    return field;
+  }
+  if ("keys" in field) {
+    return field.keys;
+  }
+  return field.key;
+}
+
+function getFieldSeparator<R, T extends Row>(field: Field<R, T>): string | undefined {
+  if (Array.isArray(field) || typeof field === "string" || !("keys" in field)) {
+    return undefined;
+  }
+  return field.separator;
 }
 
 /**
@@ -138,10 +190,18 @@ function getFieldName<R, T extends Row>(field: Field<R, T>): PropertyKey | null 
   if (Array.isArray(field)) {
     return undefined;
   }
-  if (typeof field !== "string" && field?.hide) {
+  if (typeof field === "string") {
+    return field;
+  }
+
+  const simpleField = field as SimpleKeyField;
+  if (simpleField.hide) {
     return null;
   }
-  return (typeof field === "string" ? field : (field?.as ?? field?.key)) as PropertyKey;
+  if ("keys" in simpleField) {
+    return simpleField.as;
+  }
+  return simpleField.as ?? simpleField.key;
 }
 
 /**
@@ -151,21 +211,33 @@ function getFieldValue<R, T extends Row>(row: T, field: KeyField<R, T>): unknown
   if (typeof field === "string") {
     return row[field];
   }
-  const key = getKeyField(field);
+  const key = getFieldKey(field);
 
   if (key === undefined) {
     return undefined;
   }
 
-  if (field?.json) {
-    try {
-      return JSON.parse(row[key] as string);
-    } catch (error) {
-      console.error(`"${row[key]}" is not a valid JSON`, error);
-      return null;
+  if (Array.isArray(key)) {
+    //Combined field
+    const values: string[] = [];
+    for (const k of key) {
+      values.push(String(row[k]));
     }
+    return values.join((field as CombinedField<R, T>)?.separator ?? "|");
   }
-  return row[key];
+
+  //Single field
+  if (!Array.isArray(key)) {
+    if ((field as SingleField<R, T>)?.json) {
+      try {
+        return JSON.parse(row[key] as string);
+      } catch (error) {
+        console.error(`"${row[key]}" is not a valid JSON`, error);
+        return null;
+      }
+    }
+    return row[key];
+  }
 }
 
 /**

@@ -170,7 +170,9 @@ describe("fieldsBuilder", () => {
     };
 
     const fields2 = fieldsBuilder<Result, Input>()
-      .group("totalEvents", { object: false }, (g) => g.field("eventType", "event").field("eventCount"))
+      .group("totalEvents", { object: false }, (g) =>
+        g.field("eventType", "event").field("eventCount"),
+      )
       .group("uniqueEvents", (g) => g.field("eventType", "event").field("uniqueCount"))
       .build();
 

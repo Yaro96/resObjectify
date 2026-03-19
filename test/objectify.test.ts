@@ -13,19 +13,6 @@ type Input = {
   meta: string | null;
 };
 
-type ResultArray = {
-  area_id: number;
-  area_code: string;
-  name: string;
-  meta: { tier: number } | null;
-  rules: {
-    rule_id: number;
-    rule: string | null;
-    meters: number[];
-    areas: number[];
-  }[];
-};
-
 type ResultObject = {
   area_id: number;
   area_code: string;
@@ -75,13 +62,13 @@ const fields: Field<ResultObject, Input>[] = [
 
 describe("objectify", () => {
   it("handles empty data", () => {
-    expect(objectify<ResultArray>([], fields)).toEqual([]);
-    expect(objectify<ResultObject>([], fields, true)).toEqual({});
+    expect(objectify([], fields)).toEqual([]);
+    expect(objectify([], fields, true)).toEqual({});
   });
 
   it("handles empty fields", () => {
-    expect(objectify<ResultArray>(data, [])).toEqual([]);
-    expect(objectify<ResultObject>(data, [], true)).toEqual({});
+    expect(objectify(data, [])).toEqual([]);
+    expect(objectify(data, [], true)).toEqual({});
   });
 
   it("handles group without fields", () => {
@@ -160,7 +147,7 @@ describe("objectify", () => {
   });
 
   it("builds nested arrays for rules, meters, and areas", () => {
-    expect(objectify<ResultArray>(data, fields)).toEqual([
+    expect(objectify<ResultObject, Input>(data, fields)).toEqual([
       {
         area_id: 222,
         area_code: "bbb",
@@ -199,7 +186,7 @@ describe("objectify", () => {
   });
 
   it("returns an object map when object=true", () => {
-    expect(objectify<ResultObject>(data, fields, true)).toEqual({
+    expect(objectify<ResultObject, Input>(data, fields, true)).toEqual({
       222: {
         area_id: 222,
         area_code: "bbb",
@@ -404,6 +391,95 @@ describe("objectify", () => {
       uniqueEvents: {
         click: { uniqueCount: 5, totals: [10, 30], uniques: [5, 15] },
         view: { uniqueCount: 10, totals: [20, 40], uniques: [10, 20] },
+      },
+    });
+  });
+
+  it("supports grouping by multiple fields via nested hidden groups", () => {
+    const rows = [
+      { eventType: "click", country: "US", count: 10 },
+      { eventType: "view", country: "US", count: 20 },
+      { eventType: "click", country: "US", count: 30 },
+      { eventType: "click", country: "CA", count: 7 },
+    ];
+
+    const fields: Field[] = [
+      [
+        { name: "events" },
+        [
+          { key: "eventType", hide: true },
+          [{ name: "countries" }, ["country", "eventType", ["counts", ["count"]]]],
+        ],
+      ],
+    ];
+
+    expect(objectify(rows, fields)).toEqual([
+      {
+        events: [
+          {
+            countries: [
+              {
+                country: "US",
+                counts: [10, 30],
+                eventType: "click",
+              },
+              {
+                country: "CA",
+                counts: [7],
+                eventType: "click",
+              },
+            ],
+          },
+          {
+            countries: [
+              {
+                country: "US",
+                counts: [20],
+                eventType: "view",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("supports flat grouping by multiple keys", () => {
+    const rows = [
+      { eventType: "click", country: "US", count: 10 },
+      { eventType: "view", country: "US", count: 20 },
+      { eventType: "click", country: "US", count: 30 },
+      { eventType: "click", country: "CA", count: 7 },
+      { eventType: "view", country: null, count: 99 },
+    ];
+
+    const fields: Field[] = [
+      [
+        "events",
+        [
+          { keys: ["eventType", "country"], as: "eventCountry", separator: "-", hide: true },
+          "eventType",
+          "country",
+          ["counts", ["count"]],
+        ],
+      ],
+    ];
+
+    expect(objectify(rows, fields)).toEqual([
+      {
+        events: [
+          { eventType: "click", country: "US", counts: [10, 30] },
+          { eventType: "view", country: "US", counts: [20] },
+          { eventType: "click", country: "CA", counts: [7] },
+        ],
+      },
+    ]);
+
+    expect(objectify(rows, fields, true)).toEqual({
+      events: {
+        "click-US": { eventType: "click", country: "US", counts: [10, 30] },
+        "view-US": { eventType: "view", country: "US", counts: [20] },
+        "click-CA": { eventType: "click", country: "CA", counts: [7] },
       },
     });
   });
