@@ -244,8 +244,9 @@ Combined fields let you build one value from multiple source keys:
 
 Common uses:
 
-- Emit a composite value in output.
-- Use a composite key for grouping by setting `hide: true` on the combined field.
+- Emit a composite value in output (for example `brand_model: "Acme-X100"`).
+- Group by a composite key with `hide: true` so the field is omitted from each value object.
+- In object-map mode, that composite value is still visible as the map key (for example `"Acme-X100": { ... }`).
 
 Separator behavior:
 
