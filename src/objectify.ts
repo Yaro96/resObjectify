@@ -9,7 +9,15 @@ import type {
   SimpleGroupField,
   SimpleKeyField,
   SingleField,
+  ObjectifyOptions,
 } from "../types";
+
+
+
+const DEFAULT_OPTIONS: Required<ObjectifyOptions> = {
+  object: false,
+  allowNulls: false,
+};
 
 /**
  * Transforms flat rows into nested objects/arrays based on a field definition.
@@ -17,31 +25,34 @@ import type {
  * When `object` is `true`, top-level output is keyed by the first field value.
  * Otherwise the output is an array.
  */
-export function objectify<R = unknown, T = Row>(
+export function objectify<R = unknown, T extends Row = Row>(
   data: T[],
   fields: Field<R, T>[],
-  object: true,
+  options: { object: true; allowNulls?: boolean },
 ): Record<PropertyKey, Prettify<R>>;
-export function objectify<R = unknown, T = Row>(
+export function objectify<R = unknown, T extends Row = Row>(
   data: T[],
   fields: Field<R, T>[],
-  object?: false,
+  options?: { object?: false; allowNulls?: boolean },
 ): Prettify<R>[];
 export function objectify<R = unknown>(
   data: Row[],
   fields: Field<R>[],
-  object: true,
+  options: { object: true; allowNulls?: boolean },
 ): Record<PropertyKey, Prettify<R>>;
 export function objectify<R = unknown>(
   data: Row[],
   fields: Field<R>[],
-  object?: false,
+  options?: { object?: false; allowNulls?: boolean },
 ): Prettify<R>[];
-export function objectify<R = unknown>(
-  data: Row[],
-  fields: Field<R>[],
-  object = false,
+export function objectify<R = unknown, T extends Row = Row>(
+  data: T[],
+  fields: Field<R, T>[],
+  options: ObjectifyOptions = DEFAULT_OPTIONS,
 ): Result<Prettify<R>> {
+  const object = options.object ?? DEFAULT_OPTIONS.object;
+  const allowNulls = options.allowNulls ?? DEFAULT_OPTIONS.allowNulls;
+
   if (!Array.isArray(fields) || fields.length === 0) {
     return (object ? {} : []) as Result<Prettify<R>>;
   }
@@ -55,7 +66,7 @@ export function objectify<R = unknown>(
   const result: unknown[] | Record<PropertyKey, unknown> = shouldUseObjectResult ? {} : [];
   // Pre-group by the current key so each recursion only sees its parent slice,
   // which removes the need for parent checks or duplicate tracking.
-  const groups = groupByKey(data, key, separator);
+  const groups = groupByKey(data, key, separator, allowNulls);
 
   for (const [keyValue, rows] of groups) {
     const row = rows[0];
@@ -69,15 +80,15 @@ export function objectify<R = unknown>(
         const groupField = rawGroupField as SimpleGroupField;
         const nestedObject = isObject(groupField, object);
         obj[getGroupName(groupField)] = nestedObject
-          ? objectify(rows, nestedFields, true)
-          : objectify(rows, nestedFields, false);
+          ? objectify(rows, nestedFields, { object: true, allowNulls })
+          : objectify(rows, nestedFields, { object: false, allowNulls });
 
         // If the field is not an array, it is a key field, so we can get the value from the row
       } else if (fieldName !== undefined && fieldName !== null) {
         obj[fieldName] = getFieldValue(row, field);
       }
     }
-    appendToResult(result, obj, name, keyValue as PropertyKey, restFields.length > 0);
+    appendToResult(result, obj, name, keyValue, restFields.length > 0, allowNulls);
   }
 
   if (!Array.isArray(result)) {
@@ -92,9 +103,10 @@ function appendToResult(
   keyName: PropertyKey | null | undefined,
   keyValue: PropertyKey,
   hasNestedFields: boolean,
+  allowNulls: boolean,
 ): void {
-  // Skip if key name is undefined (keyless grouping) or key value is null/undefined.
-  const hasKeyValue = keyName === undefined || keyValue != null;
+  // Keep keyless groups; otherwise treat null/undefined identically via allowNulls.
+  const hasKeyValue = keyName === undefined || allowNulls || keyValue != null;
   if (!hasKeyValue) {
     return;
   }
@@ -123,10 +135,11 @@ function groupByKey<T extends Row>(
   rows: T[],
   key?: KeyName<T> | KeyName<T>[],
   separator?: string,
-): Map<unknown, T[]> {
-  const groups = new Map<unknown, T[]>();
+  allowNulls = false,
+): Map<PropertyKey, T[]> {
+  const groups = new Map<PropertyKey, T[]>();
   for (const row of rows) {
-    const keyValue = getKeyValue(row, key, separator);
+    const keyValue = getKeyValue(row, key, separator, allowNulls) as PropertyKey;
     const group = groups.get(keyValue);
     if (group) {
       group.push(row);
@@ -141,6 +154,7 @@ function getKeyValue<T extends Row>(
   row: T,
   key?: KeyName<T> | KeyName<T>[],
   separator: string = "|",
+  allowNulls = false,
 ): unknown {
   if (key === undefined || key === null) {
     return undefined;
@@ -149,8 +163,8 @@ function getKeyValue<T extends Row>(
     let combinedKey = "";
     for (const k of key) {
       const value = row[k];
-      // Keep existing skip semantics for missing grouping values.
-      if (value == null) {
+      // Treat null/undefined identically via allowNulls.
+      if (!allowNulls && value == null) {
         return undefined;
       }
       combinedKey += `${String(value)}${separator}`;

@@ -63,12 +63,12 @@ const fields: Field<ResultObject, Input>[] = [
 describe("objectify", () => {
   it("handles empty data", () => {
     expect(objectify([], fields)).toEqual([]);
-    expect(objectify([], fields, true)).toEqual({});
+    expect(objectify([], fields, { object: true })).toEqual({});
   });
 
   it("handles empty fields", () => {
     expect(objectify(data, [])).toEqual([]);
-    expect(objectify(data, [], true)).toEqual({});
+    expect(objectify(data, [], { object: true })).toEqual({});
   });
 
   it("handles group without fields", () => {
@@ -93,7 +93,7 @@ describe("objectify", () => {
         rules: [1, 2, 5],
       },
     ]);
-    expect(objectify(data, [["rules", ["rule_id"]]], true)).toEqual({
+    expect(objectify(data, [["rules", ["rule_id"]]], { object: true })).toEqual({
       rules: [1, 2, 5],
     });
   });
@@ -104,7 +104,7 @@ describe("objectify", () => {
         rules: [],
       },
     ]);
-    expect(objectify(data, [["rules", []]], true)).toEqual({
+    expect(objectify(data, [["rules", []]], { object: true })).toEqual({
       rules: {},
     });
   });
@@ -115,7 +115,7 @@ describe("objectify", () => {
         rules: [{ meters: [] }],
       },
     ]);
-    expect(objectify(data, [["rules", [["meters", []]]]], true)).toEqual({
+    expect(objectify(data, [["rules", [["meters", []]]]], { object: true })).toEqual({
       rules: { meters: {} },
     });
   });
@@ -126,7 +126,7 @@ describe("objectify", () => {
         rules: [{ meters: [5, 8, 6, 9, 10, 7, 4, 12] }],
       },
     ]);
-    expect(objectify(data, [["rules", [["meters", ["meter_id"]]]]], true)).toEqual({
+    expect(objectify(data, [["rules", [["meters", ["meter_id"]]]]], { object: true })).toEqual({
       rules: { meters: [5, 8, 6, 9, 10, 7, 4, 12] },
     });
   });
@@ -138,7 +138,9 @@ describe("objectify", () => {
       { id: 444, rules: [{ meters: [4] }] },
       { id: 333, rules: [{ meters: [] }] },
     ]);
-    expect(objectify(data, ["id", ["rules", [["meters", ["meter_id"]]]]], true)).toEqual({
+    expect(
+      objectify(data, ["id", ["rules", [["meters", ["meter_id"]]]]], { object: true }),
+    ).toEqual({
       222: { id: 222, rules: { meters: [5, 6, 7] } },
       111: { id: 111, rules: { meters: [8, 9, 10, 12] } },
       444: { id: 444, rules: { meters: [4] } },
@@ -186,7 +188,7 @@ describe("objectify", () => {
   });
 
   it("returns an object map when object=true", () => {
-    expect(objectify<ResultObject, Input>(data, fields, true)).toEqual({
+    expect(objectify<ResultObject, Input>(data, fields, { object: true })).toEqual({
       222: {
         area_id: 222,
         area_code: "bbb",
@@ -223,6 +225,31 @@ describe("objectify", () => {
         name: "fail",
         rules: {},
       },
+    });
+  });
+
+  it("uses the same defaults when options are omitted or empty", () => {
+    expect(objectify<ResultObject, Input>(data, fields, {})).toEqual(
+      objectify<ResultObject, Input>(data, fields),
+    );
+  });
+
+  it("includes null-key groups when allowNulls=true via options object", () => {
+    const rows = [
+      { group: "A", value: 10 },
+      { group: null, value: 20 },
+      { group: undefined, value: 30 },
+    ];
+    const fields2: Field[] = ["group", ["values", ["value"]]];
+
+    expect(objectify(rows, fields2, { object: true })).toEqual({
+      A: { group: "A", values: [10] },
+    });
+
+    expect(objectify(rows, fields2, { object: true, allowNulls: true })).toEqual({
+      A: { group: "A", values: [10] },
+      null: { group: null, values: [20] },
+      undefined: { group: undefined, values: [30] },
     });
   });
 
@@ -270,7 +297,7 @@ describe("objectify", () => {
       { "": 3, v: "b" },
     ]);
 
-    expect(objectify(arr, fields, true)).toEqual({
+    expect(objectify(arr, fields, { object: true })).toEqual({
       1: { "": 1, v: "a" },
       3: { "": 3, v: "b" },
     });
@@ -296,7 +323,7 @@ describe("objectify", () => {
       { id: 1, value: "one" },
     ]);
 
-    expect(objectify(arr, fields, true)).toEqual({
+    expect(objectify(arr, fields, { object: true })).toEqual({
       0: { id: 0, value: "zero" },
       false: { id: false, value: "false" },
       1: { id: 1, value: "one" },
@@ -351,7 +378,7 @@ describe("objectify", () => {
       },
     ]);
 
-    expect(objectify(data, fields, true)).toEqual({
+    expect(objectify(data, fields, { object: true })).toEqual({
       totalEvents: {
         click: { eventType: "click", eventCount: 10, uniques: [5, 15], totals: [10, 30] },
         view: { eventType: "view", eventCount: 20, uniques: [10, 20], totals: [20, 40] },
@@ -383,7 +410,7 @@ describe("objectify", () => {
       ],
     ];
 
-    expect(objectify(data, fieldsHidden, true)).toEqual({
+    expect(objectify(data, fieldsHidden, { object: true })).toEqual({
       totalEvents: {
         click: { eventCount: 10, uniques: [5, 15], totals: [10, 30] },
         view: { eventCount: 20, uniques: [10, 20], totals: [20, 40] },
@@ -475,7 +502,7 @@ describe("objectify", () => {
       },
     ]);
 
-    expect(objectify(rows, fields, true)).toEqual({
+    expect(objectify(rows, fields, { object: true })).toEqual({
       events: {
         "click-US": { eventType: "click", country: "US", counts: [10, 30] },
         "view-US": { eventType: "view", country: "US", counts: [20] },
@@ -531,6 +558,34 @@ describe("objectify", () => {
     ]);
   });
 
+  it("handles single combined key fields", () => {
+    const rows = [
+      { eventType: "click", country: "US", count: 10 },
+      { eventType: "view", country: "US", count: 20 },
+      { eventType: "click", country: "US", count: 30 },
+      { eventType: "click", country: "CA", count: 7 },
+    ];
+
+    const fields: Field[] = [
+      { keys: ["eventType", "country"], as: "eventCountry", separator: "-" },
+    ];
+
+    expect(objectify(rows, fields)).toEqual(["click-US", "view-US", "click-CA"]);
+  });
+
+  it("return array when the other fields are hidden", () => {
+    const rows = [
+      { eventType: "click", country: "US", count: 10 },
+      { eventType: "view", country: "US", count: 20 },
+      { eventType: "click", country: "US", count: 30 },
+      { eventType: "click", country: "CA", count: 7 },
+    ];
+
+    const fields: Field[] = [{ key: "country" }, { key: "eventType", hide: true }];
+
+    expect(objectify(rows, fields)).toEqual(["US", "CA"]);
+  });
+
   it("omits a hidden field from the output", () => {
     type HideInput = { id: number; secret: string; name: string };
     type HideResult = { id: number; name: string };
@@ -547,7 +602,7 @@ describe("objectify", () => {
       { id: 2, name: "Bob" },
     ]);
 
-    expect(objectify(rows, fields, true)).toEqual({
+    expect(objectify(rows, fields, { object: true })).toEqual({
       1: { id: 1, name: "Alice" },
       2: { id: 2, name: "Bob" },
     });
@@ -564,7 +619,7 @@ describe("objectify", () => {
     const fields: Field[] = [{ key: "category", hide: true }, ["values", ["value"]]];
     expect(objectify(rows, fields)).toEqual([{ values: [10, 30] }, { values: [20] }]);
 
-    expect(objectify(rows, fields, true)).toEqual({
+    expect(objectify(rows, fields, { object: true })).toEqual({
       A: { values: [10, 30] },
       B: { values: [20] },
     });
@@ -583,7 +638,7 @@ describe("objectify", () => {
 
     const fields: Field<HideKeyResult, HideKeyInput>[] = [{ key: "category", hide: true }, "value"];
 
-    expect(objectify(rows, fields, true)).toEqual({
+    expect(objectify(rows, fields, { object: true })).toEqual({
       a: { value: 1 },
       b: { value: 2 },
       c: { value: 4 },
@@ -613,7 +668,7 @@ describe("objectify", () => {
       { id: 2, rules: [{ formula: "z" }] },
     ]);
 
-    expect(objectify(rows, fields, true)).toEqual({
+    expect(objectify(rows, fields, { object: true })).toEqual({
       1: { id: 1, rules: { 10: { formula: "x" }, 20: { formula: "y" } } },
       2: { id: 2, rules: { 10: { formula: "z" } } },
     });
@@ -636,7 +691,7 @@ describe("objectify", () => {
       { id: 2, rules: [{ formula: "z" }] },
     ]);
 
-    expect(objectify(rows, fields, true)).toEqual({
+    expect(objectify(rows, fields, { object: true })).toEqual({
       1: { id: 1, rules: [{ formula: "x" }, { formula: "y" }] },
       2: { id: 2, rules: [{ formula: "z" }] },
     });

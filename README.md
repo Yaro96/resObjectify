@@ -25,12 +25,12 @@ import { objectify, fieldsBuilder, type Field } from "resobjectify";
 ## API At A Glance
 
 ```ts
-objectify(data, fields, object?);
+objectify(data, fields, options?);
 fieldsBuilder().field(...).group(...).build();
 ```
 
-- `objectify(data, fields)` returns arrays by default.
-- `objectify(data, fields, true)` returns an object map keyed by the first field.
+- `objectify(data, fields)` returns arrays by default (`{ object: false, allowNulls: false }`).
+- `objectify(data, fields, { object: true })` returns an object map keyed by the first field.
 - `fieldsBuilder` builds the same `Field[]` tuple structure as writing arrays manually.
 
 ## Quick Example
@@ -102,11 +102,11 @@ Behavior in this example:
 
 ## Object Output Mode
 
-Pass `true` as the third argument to return a top-level object map.
+Pass `{ object: true }` as the third argument to return a top-level object map.
 Nested groups inherit that mode unless overridden.
 
 ```ts
-const mapped = objectify<Result, Row>(rows, fields, true);
+const mapped = objectify<Result, Row>(rows, fields, { object: true });
 ```
 
 `mapped`:
@@ -147,7 +147,9 @@ const fieldsWithArrayItems: Field<Result, Row>[] = [
   ]
 ];
 
-const mappedWithArrayItems = objectify<Result, Row>(rows, fieldsWithArrayItems, true);
+const mappedWithArrayItems = objectify<Result, Row>(rows, fieldsWithArrayItems, {
+  object: true,
+});
 ```
 
 `mappedWithArrayItems` keeps top-level object mode but returns `items` as an array.
@@ -302,7 +304,7 @@ const result = objectify(rows, fields);
 With `object: true`, the hidden key would still be used for top-level mapping:
 
 ```ts
-const mapped = objectify(rows, fields, true);
+const mapped = objectify(rows, fields, { object: true });
 ```
 
 `mapped`:

@@ -161,6 +161,11 @@ export type GroupFieldOptions = {
   object?: boolean;
 };
 
+export type ObjectifyOptions = {
+  object?: boolean;
+  allowNulls?: boolean;
+};
+
 /**
  * Fluent API used to compose field definitions.
  */
