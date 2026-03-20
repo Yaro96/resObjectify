@@ -37,7 +37,9 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
 
   const group: FieldsBuilder<R, T>["group"] = (
     name: GroupField<R> | SimpleGroupField,
-    optionsOrBuild: Omit<ObjectifyOptions, "separator"> | ((builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>),
+    optionsOrBuild:
+      | Omit<ObjectifyOptions, "separator">
+      | ((builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>),
     build?: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>,
   ) => {
     const options = typeof optionsOrBuild === "object" ? optionsOrBuild : undefined;
@@ -100,7 +102,10 @@ function newField<R = Row, T = Row>(
 /**
  * Normalizes group shorthand into object form when options are provided.
  */
-function newGroup(groupField: SimpleGroupField, options?: Omit<ObjectifyOptions, "separator">): SimpleGroupField {
+function newGroup(
+  groupField: SimpleGroupField,
+  options?: Omit<ObjectifyOptions, "separator">,
+): SimpleGroupField {
   if (!options) {
     return groupField;
   }

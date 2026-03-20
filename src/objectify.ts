@@ -67,11 +67,10 @@ export function objectify<R = unknown, T extends Row = Row>(
   }
 
   const [rootField, ...restFields] = fields;
-  const rootKey = getFieldKey(rootField);
   const rootName = getFieldName(rootField);
   const rootIsHidden = isHiddenField(rootField);
   const result = createResultContainer(fields, rootIsHidden, resolvedOptions);
-  const groups = groupRowsByKey(data, rootKey, resolvedOptions);
+  const groups = groupRowsByKey(data, rootField, resolvedOptions);
 
   for (const [keyValue, rows] of groups) {
     const groupedObject = buildGroupedObject(rows, fields, resolvedOptions);
@@ -203,15 +202,15 @@ function resolveArrayValue<R = unknown, T extends Row = Row>(
   keyName: PropertyKey | undefined,
   restFields: Field<R, T>[],
   rootIsHidden: boolean,
-  options: Required<ObjectifyOptions>,
+  { flattenSingleField }: Required<ObjectifyOptions>,
 ): unknown {
   if (keyName === undefined) return groupedObject;
 
   if (rootIsHidden) {
-    if (options.flattenSingleField && hasMultipleFields(restFields, 1)) {
+    if (flattenSingleField && hasMultipleFields(restFields, 1)) {
       return groupedObject;
     }
-    if (options.flattenSingleField) {
+    if (flattenSingleField) {
       const singleKey = getFirstVisibleFieldName(restFields);
       return singleKey !== undefined ? groupedObject[singleKey] : groupedObject;
     }
@@ -219,16 +218,25 @@ function resolveArrayValue<R = unknown, T extends Row = Row>(
   }
 
   const hasNestedFields = hasMultipleFields(restFields, 0);
-  return hasNestedFields ? groupedObject : groupedObject[keyName];
+  if (flattenSingleField) {
+    return hasNestedFields ? groupedObject : groupedObject[keyName];
+  }
+  return groupedObject;
 }
 
-function getFirstVisibleFieldName<R, T extends Row>(fields: Field<R, T>[]): PropertyKey | undefined {
+function getFirstVisibleFieldName<R, T extends Row>(
+  fields: Field<R, T>[],
+): PropertyKey | undefined {
   for (const field of fields) {
     if (Array.isArray(field)) {
-      return getGroupName(field[0] as SimpleGroupField);
+      return undefined;
     }
-    if (typeof field === "string") return field;
-    if (!field?.hide) return getFieldName(field);
+    if (typeof field === "string") {
+      return field;
+    }
+    if (!field?.hide) {
+      return getFieldName(field);
+    }
   }
   return undefined;
 }
@@ -249,14 +257,14 @@ function appendToObjectResult(
 /**
  * Groups rows by the provided key while preserving insertion order.
  */
-function groupRowsByKey<T extends Row>(
+function groupRowsByKey<R, T extends Row>(
   rows: T[],
-  key: KeyName<T> | KeyName<T>[] | undefined,
+  keyField: Field<R, T>,
   options: Required<ObjectifyOptions>,
 ): Map<PropertyKey, T[]> {
   const groups = new Map<PropertyKey, T[]>();
   for (const row of rows) {
-    const keyValue = resolveKeyValue(row, key, options) as PropertyKey;
+    const keyValue = resolveKeyValue(row, keyField, options) as PropertyKey;
     const group = groups.get(keyValue);
     if (group) {
       group.push(row);
@@ -267,12 +275,14 @@ function groupRowsByKey<T extends Row>(
   return groups;
 }
 
-function resolveKeyValue<T extends Row>(
+function resolveKeyValue<R, T extends Row>(
   row: T,
-  key: KeyName<T> | KeyName<T>[] | undefined,
+  keyField: Field<R, T>,
   { separator, allowNulls }: Required<ObjectifyOptions>,
 ): unknown {
-  if (key === undefined || key === null) {
+  const key = getFieldKey(keyField);
+  const effectiveSeparator = getSeparator(keyField, separator);
+  if (key === undefined) {
     return undefined;
   }
   if (Array.isArray(key)) {
@@ -283,9 +293,9 @@ function resolveKeyValue<T extends Row>(
       if (!allowNulls && value == null) {
         return undefined;
       }
-      combinedKey += `${String(value)}${separator}`;
+      combinedKey += `${String(value)}${effectiveSeparator}`;
     }
-    return combinedKey.slice(0, -separator.length);
+    return combinedKey.slice(0, -effectiveSeparator.length);
   }
   return row[key];
 }
@@ -306,6 +316,19 @@ function getFieldKey<R, T extends Row>(
     return field.keys;
   }
   return field.key;
+}
+
+function getSeparator<R, T extends Row>(
+  field: Field<R, T> | KeyField<R, T>,
+  defaultValue: string,
+): string {
+  if (Array.isArray(field) || typeof field === "string") {
+    return defaultValue;
+  }
+  if ("keys" in field) {
+    return field.separator ?? defaultValue;
+  }
+  return defaultValue;
 }
 
 /**

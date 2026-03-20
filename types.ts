@@ -148,7 +148,6 @@ export type CombinedFieldOptions = {
   hide?: boolean;
 };
 
-
 export type ObjectifyOptions = {
   object?: boolean;
   allowNulls?: boolean;
