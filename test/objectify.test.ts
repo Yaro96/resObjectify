@@ -213,25 +213,26 @@ describe("objectify", () => {
     });
 
     it("uses a hidden key field for object keys when object=true", () => {
-      type HideKeyInput = { category: string; value: number };
-      type HideKeyResult = { value: number };
+      type HideKeyInput = { category: string; value: number, unique?: boolean  };
+      type HideKeyResult = { value: number, unique?: boolean };
 
       const rows: HideKeyInput[] = [
-        { category: "a", value: 1 },
-        { category: "b", value: 2 },
-        { category: "a", value: 3 },
-        { category: "c", value: 4 },
+        { category: "a", value: 1, unique: true },
+        { category: "b", value: 2, unique: undefined },
+        { category: "a", value: 3, unique: true },
+        { category: "c", value: 4, unique: false },
       ];
 
       const fields: Field<HideKeyResult, HideKeyInput>[] = [
         { key: "category", hide: true },
         "value",
+        "unique",
       ];
 
       expect(objectify(rows, fields, { object: true })).toEqual({
-        a: { value: 1 },
-        b: { value: 2 },
-        c: { value: 4 },
+        a: { value: 1, unique: true },
+        b: { value: 2, unique: undefined },
+        c: { value: 4, unique: false },
       });
     });
   });

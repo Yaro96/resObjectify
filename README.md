@@ -29,8 +29,7 @@ objectify(data, fields, options?);
 fieldsBuilder().field(...).group(...).build();
 ```
 
-- `objectify(data, fields)` returns arrays by default (`{ object: false, allowNulls: false }`).
-- `objectify(data, fields, { object: true })` returns an object map keyed by the first field.
+- `objectify(data, fields, options?)` returns an array or object map keyed by the first field.
 - `fieldsBuilder` builds the same `Field[]` tuple structure as writing arrays manually.
 
 ## Quick Example
@@ -41,9 +40,9 @@ import { objectify, type Field } from "resobjectify";
 type Row = {
   order_id: number;
   customer: string;
-  item_id: number;
-  item_name: string;
-  qty: number;
+  item_id: number | null;
+  item_name: string | null;
+  qty: number | null;
 };
 
 type Result = {
@@ -56,7 +55,7 @@ const rows: Row[] = [
   { order_id: 1, customer: "Acme", item_id: 10, item_name: "Keyboard", qty: 1 },
   { order_id: 1, customer: "Acme", item_id: 11, item_name: "Mouse", qty: 2 },
   { order_id: 2, customer: "Beta", item_id: 20, item_name: "Monitor", qty: 1 },
-  { order_id: 2, customer: "Beta", item_id: null },
+  { order_id: 2, customer: "Beta", item_id: null, item_name: null, qty: null },
 ];
 
 const fields: Field<Result, Row>[] = [
@@ -67,9 +66,9 @@ const fields: Field<Result, Row>[] = [
     [
       { key: "item_id", as: "id" },
       { key: "item_name", as: "name" },
-      "qty"
-    ]
-  ]
+      "qty",
+    ],
+  ],
 ];
 
 const result = objectify<Result, Row>(rows, fields);
@@ -142,9 +141,9 @@ const fieldsWithArrayItems: Field<Result, Row>[] = [
     [
       { key: "item_id", as: "id" },
       { key: "item_name", as: "name" },
-      "qty"
-    ]
-  ]
+      "qty",
+    ],
+  ],
 ];
 
 const mappedWithArrayItems = objectify<Result, Row>(rows, fieldsWithArrayItems, {
@@ -153,50 +152,147 @@ const mappedWithArrayItems = objectify<Result, Row>(rows, fieldsWithArrayItems, 
 ```
 
 `mappedWithArrayItems` keeps top-level object mode but returns `items` as an array.
-If a level contains only one field, that level is always emitted as an array.
+
+## Options
+
+### `objectify(..., options)`
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `object` | `boolean` | `false` | Return an object map keyed by the first field at each level. |
+| `allowNulls` | `boolean` | `false` | Include groups whose grouping key is `null` or `undefined` at that level. |
+| `flattenSingleField` | `boolean` | `true` | Flatten single-field groups to arrays of values (`["x"]`) instead of objects (`[{ value: "x" }]`). |
+| `separator` | `string` | `"-"` | Default separator used for combined keys/values (`{ keys: [...] }`) when that field does not define `separator`. |
+
+### Group-level options
+
+Group field options (`[{ name: "group", ...options }, nestedFields]`) support:
+
+- `object`
+- `allowNulls`
+- `flattenSingleField`
+
+These overrides apply at that nested level and cascade to descendants unless overridden again.
 
 ## Using `fieldsBuilder`
 
 `fieldsBuilder` is a fluent helper to build the same `Field[]` structure without manually writing nested arrays.
 
 How it works:
-
+#### Fields
 - `field("key")` adds a key field.
 - `field("key", "alias")` adds a renamed key field.
-- `field("key", { json: true | false, hide: true | false })` adds options without alias.
-- `field("key", "alias", { json: true | false, hide: true | false })` combines alias + options.
+- `field("key", { json?, hide? })` adds options without alias.
+- `field("key", "alias", { json?, hide? })` combines alias + options.
+#### Combined Fields
+- `combinedField(["k1", "k2"], "alias")` adds a combined key field.
+- `combinedField(["k1", "k2"], "alias", { separator?, hide? })` adds a combined key field with options.
+#### Groups
 - `group(name, callback)` starts a nested level.
-- `group(name, { object: true | false }, callback)` overrides output mode for that group.
+- `group(name, { object?, allowNulls?, flattenSingleField? }, callback)` overrides output mode for that group.
+
+#### Build
 - `build()` returns the final `Field[]` tuple you pass to `objectify`.
 
 ```ts
-const built = fieldsBuilder<Result, Row>()
+const built = fieldsBuilder()
+  .combinedField(["customer", "order_id"], "customer_order", { separator: ":", hide: true })
   .field("order_id", "id")
   .field("customer")
-  .group("items", (g) =>
-    g.field("item_id", "id")
-    .field("item_name", "name")
-    .field("qty")
-    .field("meta", { json: true })
-  ).build();
+  .field("payload", { json: true })
+  .group("items", { object: false, allowNulls: true, flattenSingleField: false }, (g) =>
+    g
+      .field("item_id", "id")
+      .field("item_name", "name")
+      .field("qty")
+      .group("tags", (g2) => g2.field("tag"))
+  )
+  .build();
 ```
 
 `built`:
 
 ```ts
 [
+  {
+    keys: ["customer", "order_id"],
+    as: "customer_order",
+    separator: ":",
+    hide: true,
+  },
   { key: "order_id", as: "id" },
   "customer",
-  ["items",
+  { key: "payload", json: true },
+  [
+    { name: "items", object: false, allowNulls: true, flattenSingleField: false },
     [
       { key: "item_id", as: "id" },
       { key: "item_name", as: "name" },
-      "qty"
-      { key: "meta", json: true }
-    ]
+      "qty",
+      ["tags", ["tag"]],
+    ],
   ],
 ];
 ```
+## Combined Fields
+
+Combined fields let you build one value from multiple source keys:
+
+```ts
+{ keys: ["customer", "order_id"], as: "customer_order", separator: ":" }
+```
+
+Common uses:
+
+- Emit a composite value in output.
+- Use a composite key for grouping by setting `hide: true` on the combined field.
+
+Separator behavior:
+
+- Field-level `separator` wins.
+- Otherwise `options.separator` is used.
+- Otherwise default `"-"` is used.
+
+Example (combined field used as hidden nested grouping key):
+
+```ts
+const rows = [
+  { catalog_id: 1, brand: "Acme", model: "X100", sku: "A-1" },
+  { catalog_id: 1, brand: "Acme", model: "X100", sku: "A-2" },
+  { catalog_id: 1, brand: "Acme", model: "X200", sku: "A-3" },
+  { catalog_id: 1, brand: "Contoso", model: "M10", sku: "C-1" },
+];
+
+const fields: Field[] = [
+  "catalog_id",
+  [
+    "products",
+    [
+      { keys: ["brand", "model"], as: "brand_model", separator: "-", hide: true },
+      ["skus", ["sku"]],
+    ],
+  ],
+];
+
+const result = objectify(rows, fields, { object: true });
+```
+
+`result`:
+
+```ts
+{
+  1:{
+    catalog_id: 1,
+    products: {
+      "Acme-X100": { skus: ["A-1", "A-2"] },
+      "Acme-X200": { skus: ["A-3"] },
+      "Contoso-M10": { skus: ["C-1"] },
+    },
+  },
+}
+```
+
+
 
 ## Grouping Without A Root Key
 
@@ -205,25 +301,25 @@ This is useful when you want one aggregated object with grouped data.
 
 ```ts
 const rows = [
-  { type: "A", count: 10, uniqueCount: 5 },
-  { type: "B", count: 20, uniqueCount: 10 },
-  { type: "A", count: 30, uniqueCount: 15 },
+  { order_id: 101, customer: "Acme", item_name: "Keyboard", qty: 1 },
+  { order_id: 102, customer: "Acme", item_name: "Mouse", qty: 2 },
+  { order_id: 201, customer: "Beta", item_name: "Monitor", qty: 1 },
 ];
 
 const fields: Field[] = [
-  ["totalEvents", ["type", ["counts", ["count"]]]],
-  ["uniqueEvents", ["type", ["uniques", ["uniqueCount"]]]],
+  ["quantitiesByCustomer", ["customer", ["quantities", ["qty"]]]],
+  ["itemsByCustomer", ["customer", ["items", ["item_name"]]]],
 ];
 //or with fieldsBuilder
 const builtFields = fieldsBuilder()
-  .group("totalEvents", (g) =>
+  .group("quantitiesByCustomer", (g) =>
     g
-      .field("type")
-      .group("counts", (g1) => g1.field("count"))
-  ).group("uniqueEvents", (g) =>
+      .field("customer")
+      .group("quantities", (g1) => g1.field("qty"))
+  ).group("itemsByCustomer", (g) =>
     g
-      .field("type")
-      .group("uniques", (g1) => g1.field("uniqueCount"))
+      .field("customer")
+      .group("items", (g1) => g1.field("item_name"))
   ).build();
 
 const result = objectify(rows, fields);
@@ -234,16 +330,97 @@ const result = objectify(rows, fields);
 ```ts
 [
   {
-    totalEvents: [
-      { type: "A", counts: [10, 30] },
-      { type: "B", counts: [20] },
+    quantitiesByCustomer: [
+      { customer: "Acme", quantities: [1, 2] },
+      { customer: "Beta", quantities: [1] },
     ],
-    uniqueEvents: [
-      { type: "A", uniques: [5, 15] },
-      { type: "B", uniques: [10] },
+    itemsByCustomer: [
+      { customer: "Acme", items: ["Keyboard", "Mouse"] },
+      { customer: "Beta", items: ["Monitor"] },
     ],
   },
 ];
+```
+
+## Allow Nulls
+
+By default, rows whose grouping key is `null` or `undefined` are skipped.
+Set `allowNulls: true` to include them.
+
+```ts
+const rows = [
+  { order_id: 101, shipment_status: "new" },
+  { order_id: 102, shipment_status: null },
+  { order_id: 103, shipment_status: "processing" },
+  { order_id: 104, shipment_status: undefined },
+  { order_id: 105, shipment_status: "new" },
+];
+
+const fields: Field[] = ["shipment_status", ["orders", ["order_id"]]];
+
+const result = objectify(rows, fields);
+```
+
+`result`:
+
+```ts
+[
+  { shipment_status: "new", orders: [101, 105] },
+  { shipment_status: "processing", orders: [103] },
+]
+```
+
+```ts
+const withNulls = objectify(rows, fields, { allowNulls: true });
+```
+
+`withNulls`:
+
+```ts
+[
+  { shipment_status: "new", orders: [101, 105] },
+  { shipment_status: null, orders: [102] },
+  { shipment_status: "processing", orders: [103] },
+  { shipment_status: undefined, orders: [104] },
+]
+```
+
+## Flatten Single Field
+
+When a group level has only one visible field, `flattenSingleField: true` (default) collapses it to an array of scalar values instead of an array of single-key objects.
+
+```ts
+const rows = [
+  { order_id: 101, item_name: "Keyboard" },
+  { order_id: 101, item_name: "Mouse" },
+  { order_id: 201, item_name: "Monitor" },
+];
+
+const fields: Field[] = ["order_id", ["item_names", ["item_name"]]];
+
+const result = objectify(rows, fields);
+```
+
+`result`:
+
+```ts
+[
+  { order_id: 101, item_names: ["Keyboard", "Mouse"] },
+  { order_id: 201, item_names: ["Monitor"] },
+]
+```
+
+```ts
+const nested = objectify(rows, fields, { flattenSingleField: false });
+```
+
+`nested`:
+
+```ts
+[
+  { order_id: 101, item_names: [{ item_name: "Keyboard" }, { item_name: "Mouse" }] },
+  { order_id: 201, item_names: [{ item_name: "Monitor" }] },
+]
 ```
 
 ## JSON Parsing
@@ -251,16 +428,16 @@ const result = objectify(rows, fields);
 Use `json: true` to parse JSON text values.
 
 ```ts
-type MetaRow = { id: number; meta: string | null };
-type MetaResult = { id: number; meta: { tier: number } | null };
+type MetaRow = { order_id: number; item_meta: string | null };
+type MetaResult = { order_id: number; item_meta: { warehouse: string } | null };
 
 const metaRows: MetaRow[] = [
-  { id: 1, meta: '{"tier":1}' },
-  { id: 2, meta: null },
-  { id: 3, meta: "bad-json" },
+  { order_id: 101, item_meta: '{"warehouse":"A1"}' },
+  { order_id: 102, item_meta: null },
+  { order_id: 103, item_meta: "bad-json" },
 ];
 
-const metaFields: Field<MetaResult, MetaRow>[] = ["id", { key: "meta", json: true }];
+const metaFields: Field<MetaResult, MetaRow>[] = ["order_id", { key: "item_meta", json: true }];
 const parsed = objectify<MetaResult, MetaRow>(metaRows, metaFields);
 ```
 
@@ -268,9 +445,9 @@ const parsed = objectify<MetaResult, MetaRow>(metaRows, metaFields);
 
 ```ts
 [
-  { id: 1, meta: { tier: 1 } },
-  { id: 2, meta: null },
-  { id: 3, meta: null },
+  { order_id: 101, item_meta: { warehouse: "A1" } },
+  { order_id: 102, item_meta: null },
+  { order_id: 103, item_meta: null },
 ];
 ```
 
@@ -281,14 +458,14 @@ With `json: true`, invalid JSON values are converted to `null` and a parsing err
 `hide: true` is mainly useful when a field should be used as the grouping key, but should not appear in the output object.
 
 ```ts
-type Row = { category: string; value: number };
+type Row = { customer: string; order_id: number };
 const rows: Row[] = [
-  { category: "A", value: 10 },
-  { category: "A", value: 30 },
-  { category: "B", value: 20 },
+  { customer: "Acme", order_id: 101 },
+  { customer: "Acme", order_id: 102 },
+  { customer: "Beta", order_id: 201 },
 ];
 
-const fields: Field[] = [{ key: "category", hide: true }, ["values", ["value"]]];
+const fields: Field[] = [{ key: "customer", hide: true }, ["orders", ["order_id"]]];
 const result = objectify(rows, fields);
 ```
 
@@ -296,8 +473,8 @@ const result = objectify(rows, fields);
 
 ```ts
 [
-  { values: [10, 30] },
-  { values: [20] },
+  { orders: [101, 102] },
+  { orders: [201] },
 ];
 ```
 
@@ -311,7 +488,7 @@ const mapped = objectify(rows, fields, { object: true });
 
 ```ts
 {
-  A: { values: [10, 30] },
-  B: { values: [20] },
+  Acme: { orders: [101, 102] },
+  Beta: { orders: [201] },
 }
 ```

@@ -267,19 +267,19 @@ function getFirstVisibleFieldName<R, T extends Row>(
 }
 
 /**
- * Stores one grouped object into object output mode.
+ * Appends one object to the final result container.
  */
 function appendToObjectResult(
   result: Record<PropertyKey, unknown>,
-  groupedObject: Record<PropertyKey, unknown>,
+  obj: Record<PropertyKey, unknown>,
   keyName: PropertyKey | null | undefined,
   keyValue: PropertyKey,
 ): void {
   if (keyName === undefined) {
-    Object.assign(result, groupedObject);
+    Object.assign(result, obj);
     return;
   }
-  result[keyValue] = groupedObject;
+  result[keyValue] = obj;
 }
 
 /**
