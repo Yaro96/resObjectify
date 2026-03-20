@@ -164,6 +164,7 @@ export type GroupFieldOptions = {
 export type ObjectifyOptions = {
   object?: boolean;
   allowNulls?: boolean;
+  flattenSingleField?: boolean;
 };
 
 /**
