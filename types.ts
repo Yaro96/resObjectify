@@ -118,20 +118,14 @@ export type SimpleKeyField =
  */
 export type GroupField<R = Row> =
   | BranchKeys<R>
-  | {
-      name: BranchKeys<R>;
-      object?: boolean;
-    };
+  | ({ name: BranchKeys<R> } & Omit<ObjectifyOptions, "separator">);
 
 /**
  * Runtime-friendly group field variant used by builder internals.
  */
 export type SimpleGroupField =
   | DefaultString
-  | {
-      name: DefaultString;
-      object?: boolean;
-    };
+  | ({ name: DefaultString } & Omit<ObjectifyOptions, "separator">);
 
 /**
  * Single field definition: direct key field or nested group tuple.
@@ -154,17 +148,12 @@ export type CombinedFieldOptions = {
   hide?: boolean;
 };
 
-/**
- * Extra options when defining a group field.
- */
-export type GroupFieldOptions = {
-  object?: boolean;
-};
 
 export type ObjectifyOptions = {
   object?: boolean;
   allowNulls?: boolean;
   flattenSingleField?: boolean;
+  separator?: string;
 };
 
 /**
@@ -197,7 +186,7 @@ export type FieldsBuilder<R = Row, T = Row> = {
     ): FieldsBuilder<R, T>;
     (
       name: GroupField<R> | SimpleGroupField,
-      options: GroupFieldOptions,
+      options: Omit<ObjectifyOptions, "separator">,
       fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>,
     ): FieldsBuilder<R, T>;
   };

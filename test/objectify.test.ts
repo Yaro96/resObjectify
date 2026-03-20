@@ -664,6 +664,11 @@ describe("objectify", () => {
     ];
 
     expect(objectify(rows, fields)).toEqual([
+      { id: 1, rules: ["x", "y"] },
+      { id: 2, rules: ["z"] },
+    ]);
+
+    expect(objectify(rows, fields, { flattenSingleField: false })).toEqual([
       { id: 1, rules: [{ formula: "x" }, { formula: "y" }] },
       { id: 2, rules: [{ formula: "z" }] },
     ]);
@@ -687,11 +692,21 @@ describe("objectify", () => {
     ];
 
     expect(objectify(rows, fields)).toEqual([
+      { id: 1, rules: ["x", "y"] },
+      { id: 2, rules: ["z"] },
+    ]);
+
+    expect(objectify(rows, fields, { flattenSingleField: false })).toEqual([
       { id: 1, rules: [{ formula: "x" }, { formula: "y" }] },
       { id: 2, rules: [{ formula: "z" }] },
     ]);
 
     expect(objectify(rows, fields, { object: true })).toEqual({
+      1: { id: 1, rules: ["x", "y"] },
+      2: { id: 2, rules: ["z"] },
+    });
+
+    expect(objectify(rows, fields, { object: true, flattenSingleField: false })).toEqual({
       1: { id: 1, rules: [{ formula: "x" }, { formula: "y" }] },
       2: { id: 2, rules: [{ formula: "z" }] },
     });
