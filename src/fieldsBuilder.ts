@@ -1,4 +1,5 @@
 import type {
+  CombinedFieldOptions,
   Field,
   FieldsBuilder,
   GroupField,
@@ -16,6 +17,9 @@ import type {
 export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
   const fields: Field<R, T>[] = [];
 
+  /**
+   * Adds a key field using either shorthand or object form.
+   */
   const field: FieldsBuilder<R, T>["field"] = (
     field: KeyField<R, T>,
     asOrOptions?: LeafKeys<R> | KeyFieldOptions,
@@ -34,6 +38,9 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
     return api;
   };
 
+  /**
+   * Adds a nested group and collects its child fields from a nested builder.
+   */
   const group: FieldsBuilder<R, T>["group"] = (
     name: GroupField<R> | SimpleGroupField,
     optionsOrBuild: GroupFieldOptions | ((builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>),
@@ -50,11 +57,33 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
     return api;
   };
 
+  /**
+   * Adds a combined key field (`keys`) definition.
+   */
+  const combinedField: FieldsBuilder<R, T>["combinedField"] = (
+    keys,
+    as,
+    options?: CombinedFieldOptions,
+  ) => {
+    const entry: KeyField<R, T> = {
+      keys: [...keys],
+      as,
+    };
+    if (options) {
+      Object.assign(entry, options);
+    }
+    fields.push(entry);
+    return api;
+  };
+
+  /**
+   * Returns a snapshot of currently collected field definitions.
+   */
   const build: FieldsBuilder<R, T>["build"] = () => {
     return [...fields];
   };
 
-  const api: FieldsBuilder<R, T> = { field, group, build };
+  const api: FieldsBuilder<R, T> = { field, combinedField, group, build };
   return api;
 }
 
@@ -83,14 +112,12 @@ function newField<R = Row, T = Row>(
 /**
  * Normalizes group shorthand into object form when options are provided.
  */
-function newGroup(groupField: SimpleGroupField, options?: GroupFieldOptions): SimpleGroupField {
+function newGroup(groupField: SimpleGroupField, options?: GroupFieldOptions): GroupField {
   if (!options) {
     return groupField;
   }
 
-  let entry: SimpleGroupField = typeof groupField === "object" ? groupField : { name: groupField };
-  if (options) {
-    entry = { ...entry, ...options };
-  }
-  return entry;
+  const entry: SimpleGroupField =
+    typeof groupField === "object" ? groupField : { name: groupField };
+  return { ...entry, ...options };
 }

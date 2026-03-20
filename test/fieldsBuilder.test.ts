@@ -170,7 +170,9 @@ describe("fieldsBuilder", () => {
     };
 
     const fields2 = fieldsBuilder<Result, Input>()
-      .group("totalEvents", { object: false }, (g) => g.field("eventType", "event").field("eventCount"))
+      .group("totalEvents", { object: false }, (g) =>
+        g.field("eventType", "event").field("eventCount"),
+      )
       .group("uniqueEvents", (g) => g.field("eventType", "event").field("uniqueCount"))
       .build();
 
@@ -188,6 +190,40 @@ describe("fieldsBuilder", () => {
   it("builds a hidden field via object form", () => {
     const fields2 = fieldsBuilder().field({ key: "id", hide: true }).build();
     expect(fields2).toEqual([{ key: "id", hide: true }]);
+  });
+
+  it("builds a combined field", () => {
+    const fields2 = fieldsBuilder<ResultObject, Input>()
+      .combinedField(["id", "code"], "area_code")
+      .build();
+
+    expect(fields2).toEqual([{ keys: ["id", "code"], as: "area_code" }]);
+  });
+
+  it("builds a combined field with options", () => {
+    const fields2 = fieldsBuilder<ResultObject, Input>()
+      .combinedField(["id", "code"], "area_code", { separator: "-", hide: true })
+      .build();
+
+    expect(fields2).toEqual([
+      { keys: ["id", "code"], as: "area_code", separator: "-", hide: true },
+    ]);
+  });
+
+  it("keeps allowNulls/flattenSingleField when explicitly set on group options", () => {
+    const fields2 = fieldsBuilder<ResultObject, Input>()
+      .group("rules", { allowNulls: true, flattenSingleField: false }, (g) => g.field("rule_id"))
+      .build();
+
+    expect(fields2).toEqual([
+      [{ name: "rules", allowNulls: true, flattenSingleField: false }, ["rule_id"]],
+    ]);
+
+    const fields3 = fieldsBuilder<ResultObject, Input>()
+      .group("rules", (g) => g.field("rule_id"))
+      .build();
+
+    expect(fields3).toEqual([["rules", ["rule_id"]]]);
   });
 
   it("builds a hidden field combined with as and json", () => {
