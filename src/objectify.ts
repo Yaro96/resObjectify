@@ -1,5 +1,4 @@
 import type {
-  CombinedField,
   Field,
   KeyField,
   KeyName,
@@ -91,10 +90,16 @@ export function objectify<R = unknown, T extends Row = Row>(
   return result as Prettify<R>[];
 }
 
+/**
+ * Merges caller options with library defaults.
+ */
 function resolveOptions(options: ObjectifyOptions = DEFAULT_OPTIONS): Required<ObjectifyOptions> {
   return { ...DEFAULT_OPTIONS, ...options };
 }
 
+/**
+ * Chooses array vs object output container for the current run.
+ */
 function createResultContainer<R, T extends Row>(
   fields: Field<R, T>[],
   rootIsHidden: boolean,
@@ -106,6 +111,9 @@ function createResultContainer<R, T extends Row>(
   return shouldUseObjectResult ? {} : [];
 }
 
+/**
+ * Builds one grouped output object from a set of grouped rows.
+ */
 function buildGroupedObject<R = unknown, T extends Row = Row>(
   rows: T[],
   fields: Field<R, T>[],
@@ -133,13 +141,16 @@ function buildGroupedObject<R = unknown, T extends Row = Row>(
 
     const fieldName = getFieldName(field);
     if (fieldName !== undefined) {
-      groupedObject[fieldName] = getFieldValue(firstRow, field);
+      groupedObject[fieldName] = getFieldValue(firstRow, field, options.separator);
     }
   }
 
   return groupedObject;
 }
 
+/**
+ * Builds the value for a nested group field.
+ */
 function buildNestedGroupValue<R = unknown, T extends Row = Row>(
   rows: T[],
   nestedFields: Field<R, T>[],
@@ -147,7 +158,7 @@ function buildNestedGroupValue<R = unknown, T extends Row = Row>(
   options: Required<ObjectifyOptions>,
 ): unknown {
   const groupOptions = getGroupOptions(groupField, options);
-
+  // Keep `object` explicit so TypeScript resolves overloads correctly.
   if (groupOptions.object) {
     return objectify<R, T>(rows, nestedFields, { ...groupOptions, object: true });
   }
@@ -155,6 +166,9 @@ function buildNestedGroupValue<R = unknown, T extends Row = Row>(
   return objectify<R, T>(rows, nestedFields, { ...groupOptions, object: false });
 }
 
+/**
+ * Appends one grouped object to the final result container.
+ */
 function appendToResult<R = unknown, T extends Row = Row>(
   result: unknown[] | Record<PropertyKey, unknown>,
   groupedObject: Record<PropertyKey, unknown>,
@@ -169,14 +183,19 @@ function appendToResult<R = unknown, T extends Row = Row>(
     return;
   }
 
+  //When output is an array, we push the grouped object to the result.
   if (Array.isArray(result)) {
     appendToArrayResult(result, groupedObject, keyName, restFields, rootIsHidden, options);
     return;
   }
 
+  //When output is an object, we append the grouped object to the result with the key value.
   appendToObjectResult(result, groupedObject, keyName, keyValue);
 }
 
+/**
+ * Returns whether the current group should be emitted or skipped.
+ */
 function shouldIncludeGroup(
   keyName: PropertyKey | undefined,
   keyValue: PropertyKey,
@@ -186,6 +205,9 @@ function shouldIncludeGroup(
   return keyName === undefined || allowNulls || keyValue != null;
 }
 
+/**
+ * Pushes one normalized value into array output mode.
+ */
 function appendToArrayResult<R = unknown, T extends Row = Row>(
   result: unknown[],
   groupedObject: Record<PropertyKey, unknown>,
@@ -197,6 +219,9 @@ function appendToArrayResult<R = unknown, T extends Row = Row>(
   result.push(resolveArrayValue(groupedObject, keyName, restFields, rootIsHidden, options));
 }
 
+/**
+ * Resolves how a grouped object is represented in array mode.
+ */
 function resolveArrayValue<R = unknown, T extends Row = Row>(
   groupedObject: Record<PropertyKey, unknown>,
   keyName: PropertyKey | undefined,
@@ -207,10 +232,7 @@ function resolveArrayValue<R = unknown, T extends Row = Row>(
   if (keyName === undefined) return groupedObject;
 
   if (rootIsHidden) {
-    if (flattenSingleField && hasMultipleFields(restFields, 1)) {
-      return groupedObject;
-    }
-    if (flattenSingleField) {
+    if (flattenSingleField && !hasMultipleFields(restFields, 1)) {
       const singleKey = getFirstVisibleFieldName(restFields);
       return singleKey !== undefined ? groupedObject[singleKey] : groupedObject;
     }
@@ -224,6 +246,9 @@ function resolveArrayValue<R = unknown, T extends Row = Row>(
   return groupedObject;
 }
 
+/**
+ * Finds the first visible(not hidden) field name among nested fields.
+ */
 function getFirstVisibleFieldName<R, T extends Row>(
   fields: Field<R, T>[],
 ): PropertyKey | undefined {
@@ -241,6 +266,9 @@ function getFirstVisibleFieldName<R, T extends Row>(
   return undefined;
 }
 
+/**
+ * Stores one grouped object into object output mode.
+ */
 function appendToObjectResult(
   result: Record<PropertyKey, unknown>,
   groupedObject: Record<PropertyKey, unknown>,
@@ -275,6 +303,9 @@ function groupRowsByKey<R, T extends Row>(
   return groups;
 }
 
+/**
+ * Resolves a row key value used for grouping.
+ */
 function resolveKeyValue<R, T extends Row>(
   row: T,
   keyField: Field<R, T>,
@@ -318,6 +349,9 @@ function getFieldKey<R, T extends Row>(
   return field.key;
 }
 
+/**
+ * Resolves the separator for combined key/value fields.
+ */
 function getSeparator<R, T extends Row>(
   field: Field<R, T> | KeyField<R, T>,
   defaultValue: string,
@@ -346,6 +380,9 @@ function getFieldName<R, T extends Row>(field: Field<R, T>): PropertyKey | undef
   return namedField.as ?? namedField.key;
 }
 
+/**
+ * Returns whether a key field is marked as hidden.
+ */
 function isHiddenField<R, T extends Row>(field: Field<R, T>): boolean {
   if (Array.isArray(field) || typeof field === "string") {
     return false;
@@ -356,7 +393,11 @@ function isHiddenField<R, T extends Row>(field: Field<R, T>): boolean {
 /**
  * Reads a row value and optionally parses it as JSON.
  */
-function getFieldValue<R, T extends Row>(row: T, field: KeyField<R, T>): unknown {
+function getFieldValue<R, T extends Row>(
+  row: T,
+  field: KeyField<R, T>,
+  separator: string,
+): unknown {
   if (typeof field === "string") {
     return row[field];
   }
@@ -371,7 +412,7 @@ function getFieldValue<R, T extends Row>(row: T, field: KeyField<R, T>): unknown
     for (const k of key) {
       values.push(String(row[k]));
     }
-    return values.join((field as CombinedField<R, T>)?.separator ?? "|");
+    return values.join(getSeparator(field, separator));
   }
 
   if ((field as SingleField<R, T>).json) {
@@ -409,6 +450,9 @@ function getGroupOptions(
   return { ...defaultValue, ...field };
 }
 
+/**
+ * Checks if a field list effectively contains more than `threshold` visible fields.
+ */
 function hasMultipleFields<R, T extends Row>(
   fields: Field<R, T>[],
   threshold: number = 1,

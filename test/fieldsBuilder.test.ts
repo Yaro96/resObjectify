@@ -210,6 +210,22 @@ describe("fieldsBuilder", () => {
     ]);
   });
 
+  it("keeps allowNulls/flattenSingleField when explicitly set on group options", () => {
+    const fields2 = fieldsBuilder<ResultObject, Input>()
+      .group("rules", { allowNulls: true, flattenSingleField: false }, (g) => g.field("rule_id"))
+      .build();
+
+    expect(fields2).toEqual([
+      [{ name: "rules", allowNulls: true, flattenSingleField: false }, ["rule_id"]],
+    ]);
+
+    const fields3 = fieldsBuilder<ResultObject, Input>()
+      .group("rules", (g) => g.field("rule_id"))
+      .build();
+
+    expect(fields3).toEqual([["rules", ["rule_id"]]]);
+  });
+
   it("builds a hidden field combined with as and json", () => {
     const fields2 = fieldsBuilder()
       .field("id", "area_id", { hide: true })

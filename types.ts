@@ -17,14 +17,30 @@ export type DefaultString = string & {};
  * Extracts the element type from readonly arrays/tuples.
  */
 type ArrayElement<T> = T extends readonly (infer U)[] ? U : never;
+
+/**
+ * Narrows arbitrary keys to string keys.
+ */
 type StringKey<K> = Extract<K, string>;
 
 /**
  * Values treated as terminal leaves during key-path discovery.
  */
 type Primitives = string | number | boolean | null | undefined | Date;
+
+/**
+ * Alias for readonly arrays used in recursive key analysis.
+ */
 type Array = readonly unknown[];
+
+/**
+ * Alias for generic object records used in recursive key analysis.
+ */
 type Object = Record<PropertyKey, unknown>;
+
+/**
+ * Extracts array/object branches while excluding primitive leaves.
+ */
 type ChildPart<T> = Extract<T, Array | Object>;
 
 /**
@@ -90,6 +106,9 @@ export type Prettify<T> = {
  */
 export type Result<T = unknown> = T[] | Record<PropertyKey, T>;
 
+/**
+ * Defines a single source key with optional aliasing/flags.
+ */
 export type SingleField<R = Row, T = Row> = {
   key: KeyName<T>;
   as?: LeafKeys<R>;
@@ -97,6 +116,9 @@ export type SingleField<R = Row, T = Row> = {
   hide?: boolean;
 };
 
+/**
+ * Defines a composite key made from multiple source keys.
+ */
 export type CombinedField<R = Row, T = Row> = {
   keys: KeyName<T>[];
   as: LeafKeys<R>;
@@ -109,23 +131,20 @@ export type CombinedField<R = Row, T = Row> = {
  */
 export type KeyField<R = Row, T = Row> = KeyName<T> | SingleField<R, T> | CombinedField<R, T>;
 
-export type SimpleKeyField =
-  | { key: DefaultString; as?: DefaultString; json?: boolean; hide?: boolean }
-  | { keys: DefaultString[]; as: DefaultString; separator?: string; hide?: boolean };
+/**
+ * Group options supported on nested group declarations.
+ */
+export type GroupFieldOptions = Omit<ObjectifyOptions, "separator">;
 
 /**
  * Describes a nested group in the output object.
  */
-export type GroupField<R = Row> =
-  | BranchKeys<R>
-  | ({ name: BranchKeys<R> } & Omit<ObjectifyOptions, "separator">);
+export type GroupField<R = Row> = BranchKeys<R> | ({ name: BranchKeys<R> } & GroupFieldOptions);
 
 /**
  * Runtime-friendly group field variant used by builder internals.
  */
-export type SimpleGroupField =
-  | DefaultString
-  | ({ name: DefaultString } & Omit<ObjectifyOptions, "separator">);
+export type SimpleGroupField = DefaultString | ({ name: DefaultString } & GroupFieldOptions);
 
 /**
  * Single field definition: direct key field or nested group tuple.
@@ -148,6 +167,9 @@ export type CombinedFieldOptions = {
   hide?: boolean;
 };
 
+/**
+ * Runtime options used by `objectify` during transformation.
+ */
 export type ObjectifyOptions = {
   object?: boolean;
   allowNulls?: boolean;
@@ -185,7 +207,7 @@ export type FieldsBuilder<R = Row, T = Row> = {
     ): FieldsBuilder<R, T>;
     (
       name: GroupField<R> | SimpleGroupField,
-      options: Omit<ObjectifyOptions, "separator">,
+      options: GroupFieldOptions,
       fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>,
     ): FieldsBuilder<R, T>;
   };

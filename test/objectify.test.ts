@@ -382,6 +382,23 @@ describe("objectify", () => {
         },
       ]);
     });
+
+    it("uses global separator for grouping keys", () => {
+      const rows = [
+        { eventType: "click", country: "US", count: 10 },
+        { eventType: "click", country: "US", count: 30 },
+      ];
+
+      const fields: Field[] = [
+        ["events", [{ keys: ["eventType", "country"], as: "eventCountry" }, ["counts", ["count"]]]],
+      ];
+
+      expect(objectify(rows, fields, { object: true, separator: "_" })).toEqual({
+        events: {
+          click_US: { eventCountry: "click_US", counts: [10, 30] },
+        },
+      });
+    });
   });
 
   describe("groups", () => {
@@ -574,9 +591,7 @@ describe("objectify", () => {
         [{ name: "rules", allowNulls: true }, ["rule_id", "formula"]],
       ];
 
-      expect(objectify(rows, fields)).toEqual([
-        { id: 1, rules: [{ rule_id: 1, formula: "x" }] },
-      ]);
+      expect(objectify(rows, fields)).toEqual([{ id: 1, rules: [{ rule_id: 1, formula: "x" }] }]);
 
       expect(objectify(rows, fieldsNulls)).toEqual([
         {
