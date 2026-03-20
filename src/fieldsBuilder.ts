@@ -1,4 +1,5 @@
 import type {
+  CombinedFieldOptions,
   Field,
   FieldsBuilder,
   GroupField,
@@ -50,11 +51,27 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
     return api;
   };
 
+  const combinedField: FieldsBuilder<R, T>["combinedField"] = (
+    keys,
+    as,
+    options?: CombinedFieldOptions,
+  ) => {
+    const entry: KeyField<R, T> = {
+      keys: [...keys],
+      as,
+    };
+    if (options) {
+      Object.assign(entry, options);
+    }
+    fields.push(entry);
+    return api;
+  };
+
   const build: FieldsBuilder<R, T>["build"] = () => {
     return [...fields];
   };
 
-  const api: FieldsBuilder<R, T> = { field, group, build };
+  const api: FieldsBuilder<R, T> = { field, combinedField, group, build };
   return api;
 }
 

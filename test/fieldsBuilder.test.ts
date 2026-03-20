@@ -192,6 +192,24 @@ describe("fieldsBuilder", () => {
     expect(fields2).toEqual([{ key: "id", hide: true }]);
   });
 
+  it("builds a combined field", () => {
+    const fields2 = fieldsBuilder<ResultObject, Input>()
+      .combinedField(["id", "code"], "area_code")
+      .build();
+
+    expect(fields2).toEqual([{ keys: ["id", "code"], as: "area_code" }]);
+  });
+
+  it("builds a combined field with options", () => {
+    const fields2 = fieldsBuilder<ResultObject, Input>()
+      .combinedField(["id", "code"], "area_code", { separator: "-", hide: true })
+      .build();
+
+    expect(fields2).toEqual([
+      { keys: ["id", "code"], as: "area_code", separator: "-", hide: true },
+    ]);
+  });
+
   it("builds a hidden field combined with as and json", () => {
     const fields2 = fieldsBuilder()
       .field("id", "area_id", { hide: true })

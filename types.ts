@@ -147,6 +147,14 @@ export type KeyFieldOptions = {
 };
 
 /**
+ * Extra options when defining a combined key field.
+ */
+export type CombinedFieldOptions = {
+  separator?: string;
+  hide?: boolean;
+};
+
+/**
  * Extra options when defining a group field.
  */
 export type GroupFieldOptions = {
@@ -165,6 +173,14 @@ export type FieldsBuilder<R = Row, T = Row> = {
     (field: KeyName<T>, as?: LeafKeys<R>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
     (key: KeyName<T>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
   };
+  /**
+   * Adds a combined key field (`keys`) to the current field set.
+   */
+  combinedField: (
+    keys: KeyName<T>[],
+    as: LeafKeys<R>,
+    options?: CombinedFieldOptions,
+  ) => FieldsBuilder<R, T>;
   /**
    * Adds a nested group with its own child field builder.
    */
