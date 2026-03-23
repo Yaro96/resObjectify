@@ -199,7 +199,12 @@ describe("objectify", () => {
         { id: 2, secret: "xyz", name: "Bob" },
       ];
 
-      const fields: Field<HideResult, HideInput>[] = ["id", { key: "secret", hide: true }, "name"];
+      const fields: Field<HideResult, HideInput>[] = [
+        "id",
+        { key: "secret", as: "test", hide: true },
+        { keys: ["secret", "name"], as: "secret_name", hide: true },
+        "name",
+      ];
 
       expect(objectify(rows, fields)).toEqual([
         { id: 1, name: "Alice" },
@@ -213,8 +218,8 @@ describe("objectify", () => {
     });
 
     it("uses a hidden key field for object keys when object=true", () => {
-      type HideKeyInput = { category: string; value: number, unique?: boolean  };
-      type HideKeyResult = { value: number, unique?: boolean };
+      type HideKeyInput = { category: string; value: number; unique?: boolean };
+      type HideKeyResult = { value: number; unique?: boolean };
 
       const rows: HideKeyInput[] = [
         { category: "a", value: 1, unique: true },

@@ -1,14 +1,5 @@
-import type {
-  Field,
-  KeyField,
-  KeyName,
-  ObjectifyOptions,
-  Prettify,
-  Result,
-  Row,
-  SimpleGroupField,
-  SingleField,
-} from "../types";
+import type { RuntimeField, RuntimeGroupField, RuntimeKeyField } from "../runtimeTypes";
+import type { Field, KeyName, ObjectifyOptions, Prettify, Result, Row } from "../types";
 
 const DEFAULT_OPTIONS: Required<ObjectifyOptions> = {
   object: false,
@@ -55,7 +46,18 @@ export function objectify<R = unknown>(
 ): Prettify<R>[];
 export function objectify<R = unknown, T extends Row = Row>(
   data: T[],
-  fields: Field<R, T>[],
+  fields: RuntimeField<T>[],
+  options: ObjectifyOptions = DEFAULT_OPTIONS,
+): Result<Prettify<R>> {
+  return objectifyInternal<R, T>(data, fields, options);
+}
+
+/**
+ * Internal runtime implementation that operates on simplified field types.
+ */
+function objectifyInternal<R = unknown, T extends Row = Row>(
+  data: T[],
+  fields: RuntimeField<T>[],
   options: ObjectifyOptions = DEFAULT_OPTIONS,
 ): Result<Prettify<R>> {
   const resolvedOptions = resolveOptions(options);
@@ -100,8 +102,8 @@ function resolveOptions(options: ObjectifyOptions = DEFAULT_OPTIONS): Required<O
 /**
  * Chooses array vs object output container for the current run.
  */
-function createResultContainer<R, T extends Row>(
-  fields: Field<R, T>[],
+function createResultContainer<T extends Row>(
+  fields: RuntimeField<T>[],
   rootIsHidden: boolean,
   options: Required<ObjectifyOptions>,
 ): unknown[] | Record<PropertyKey, unknown> {
@@ -114,9 +116,9 @@ function createResultContainer<R, T extends Row>(
 /**
  * Builds one grouped output object from a set of grouped rows.
  */
-function buildGroupedObject<R = unknown, T extends Row = Row>(
+function buildGroupedObject<T extends Row = Row>(
   rows: T[],
-  fields: Field<R, T>[],
+  fields: RuntimeField<T>[],
   options: Required<ObjectifyOptions>,
 ): Record<PropertyKey, unknown> {
   const firstRow = rows[0];
@@ -125,7 +127,7 @@ function buildGroupedObject<R = unknown, T extends Row = Row>(
   for (const field of fields) {
     if (Array.isArray(field)) {
       const [rawGroupField, nestedFields] = field;
-      const groupField = rawGroupField as SimpleGroupField;
+      const groupField = rawGroupField as RuntimeGroupField;
       groupedObject[getGroupName(groupField)] = buildNestedGroupValue(
         rows,
         nestedFields,
@@ -153,28 +155,28 @@ function buildGroupedObject<R = unknown, T extends Row = Row>(
  */
 function buildNestedGroupValue<R = unknown, T extends Row = Row>(
   rows: T[],
-  nestedFields: Field<R, T>[],
-  groupField: SimpleGroupField,
+  nestedFields: RuntimeField<T>[],
+  groupField: RuntimeGroupField,
   options: Required<ObjectifyOptions>,
 ): unknown {
   const groupOptions = getGroupOptions(groupField, options);
   // Keep `object` explicit so TypeScript resolves overloads correctly.
   if (groupOptions.object) {
-    return objectify<R, T>(rows, nestedFields, { ...groupOptions, object: true });
+    return objectifyInternal<R, T>(rows, nestedFields, { ...groupOptions, object: true });
   }
 
-  return objectify<R, T>(rows, nestedFields, { ...groupOptions, object: false });
+  return objectifyInternal<R, T>(rows, nestedFields, { ...groupOptions, object: false });
 }
 
 /**
  * Appends one grouped object to the final result container.
  */
-function appendToResult<R = unknown, T extends Row = Row>(
+function appendToResult<T extends Row = Row>(
   result: unknown[] | Record<PropertyKey, unknown>,
   groupedObject: Record<PropertyKey, unknown>,
   keyName: PropertyKey | undefined,
   keyValue: PropertyKey,
-  restFields: Field<R, T>[],
+  restFields: RuntimeField<T>[],
   options: Required<ObjectifyOptions>,
   rootIsHidden: boolean,
 ): void {
@@ -208,11 +210,11 @@ function shouldIncludeGroup(
 /**
  * Pushes one normalized value into array output mode.
  */
-function appendToArrayResult<R = unknown, T extends Row = Row>(
+function appendToArrayResult<T extends Row = Row>(
   result: unknown[],
   groupedObject: Record<PropertyKey, unknown>,
   keyName: PropertyKey | undefined,
-  restFields: Field<R, T>[],
+  restFields: RuntimeField<T>[],
   rootIsHidden: boolean,
   options: Required<ObjectifyOptions>,
 ): void {
@@ -222,10 +224,10 @@ function appendToArrayResult<R = unknown, T extends Row = Row>(
 /**
  * Resolves how a grouped object is represented in array mode.
  */
-function resolveArrayValue<R = unknown, T extends Row = Row>(
+function resolveArrayValue<T extends Row = Row>(
   groupedObject: Record<PropertyKey, unknown>,
   keyName: PropertyKey | undefined,
-  restFields: Field<R, T>[],
+  restFields: RuntimeField<T>[],
   rootIsHidden: boolean,
   { flattenSingleField }: Required<ObjectifyOptions>,
 ): unknown {
@@ -249,8 +251,8 @@ function resolveArrayValue<R = unknown, T extends Row = Row>(
 /**
  * Finds the first visible(not hidden) field name among nested fields.
  */
-function getFirstVisibleFieldName<R, T extends Row>(
-  fields: Field<R, T>[],
+function getFirstVisibleFieldName<T extends Row>(
+  fields: RuntimeField<T>[],
 ): PropertyKey | undefined {
   for (const field of fields) {
     if (Array.isArray(field)) {
@@ -285,9 +287,9 @@ function appendToObjectResult(
 /**
  * Groups rows by the provided key while preserving insertion order.
  */
-function groupRowsByKey<R, T extends Row>(
+function groupRowsByKey<T extends Row>(
   rows: T[],
-  keyField: Field<R, T>,
+  keyField: RuntimeField<T>,
   options: Required<ObjectifyOptions>,
 ): Map<PropertyKey, T[]> {
   const groups = new Map<PropertyKey, T[]>();
@@ -306,9 +308,9 @@ function groupRowsByKey<R, T extends Row>(
 /**
  * Resolves a row key value used for grouping.
  */
-function resolveKeyValue<R, T extends Row>(
+function resolveKeyValue<T extends Row>(
   row: T,
-  keyField: Field<R, T>,
+  keyField: RuntimeField<T>,
   { separator, allowNulls }: Required<ObjectifyOptions>,
 ): unknown {
   const key = getFieldKey(keyField);
@@ -334,8 +336,8 @@ function resolveKeyValue<R, T extends Row>(
 /**
  * Resolves the source key from either shorthand or object field syntax.
  */
-function getFieldKey<R, T extends Row>(
-  field: Field<R, T> | KeyField<R, T>,
+function getFieldKey<T extends Row>(
+  field: RuntimeField<T> | RuntimeKeyField<T>,
 ): KeyName<T> | KeyName<T>[] | undefined {
   if (Array.isArray(field)) {
     return undefined;
@@ -352,8 +354,8 @@ function getFieldKey<R, T extends Row>(
 /**
  * Resolves the separator for combined key/value fields.
  */
-function getSeparator<R, T extends Row>(
-  field: Field<R, T> | KeyField<R, T>,
+function getSeparator<T extends Row>(
+  field: RuntimeField<T> | RuntimeKeyField<T>,
   defaultValue: string,
 ): string {
   if (Array.isArray(field) || typeof field === "string") {
@@ -368,7 +370,7 @@ function getSeparator<R, T extends Row>(
 /**
  * Resolves the output property name for a key field.
  */
-function getFieldName<R, T extends Row>(field: Field<R, T>): PropertyKey | undefined {
+function getFieldName<T extends Row>(field: RuntimeField<T>): PropertyKey | undefined {
   if (Array.isArray(field)) {
     return undefined;
   }
@@ -383,7 +385,7 @@ function getFieldName<R, T extends Row>(field: Field<R, T>): PropertyKey | undef
 /**
  * Returns whether a key field is marked as hidden.
  */
-function isHiddenField<R, T extends Row>(field: Field<R, T>): boolean {
+function isHiddenField<T extends Row>(field: RuntimeField<T>): boolean {
   if (Array.isArray(field) || typeof field === "string") {
     return false;
   }
@@ -393,9 +395,9 @@ function isHiddenField<R, T extends Row>(field: Field<R, T>): boolean {
 /**
  * Reads a row value and optionally parses it as JSON.
  */
-function getFieldValue<R, T extends Row>(
+function getFieldValue<T extends Row>(
   row: T,
-  field: KeyField<R, T>,
+  field: RuntimeKeyField<T>,
   separator: string,
 ): unknown {
   if (typeof field === "string") {
@@ -415,7 +417,7 @@ function getFieldValue<R, T extends Row>(
     return values.join(getSeparator(field, separator));
   }
 
-  if ((field as SingleField<R, T>).json) {
+  if ("json" in field && field.json) {
     try {
       return JSON.parse(row[key] as string);
     } catch (error) {
@@ -430,7 +432,7 @@ function getFieldValue<R, T extends Row>(
 /**
  * Resolves the output name for a group field definition.
  */
-function getGroupName(field: SimpleGroupField): PropertyKey {
+function getGroupName(field: RuntimeGroupField): PropertyKey {
   if (typeof field === "string" || typeof field === "number" || typeof field === "symbol") {
     return field;
   }
@@ -441,7 +443,7 @@ function getGroupName(field: SimpleGroupField): PropertyKey {
  * Resolves whether a group should be emitted as object or array.
  */
 function getGroupOptions(
-  field: SimpleGroupField,
+  field: RuntimeGroupField,
   defaultValue: Required<ObjectifyOptions>,
 ): Required<ObjectifyOptions> {
   if (typeof field !== "object") {
@@ -453,8 +455,8 @@ function getGroupOptions(
 /**
  * Checks if a field list effectively contains more than `threshold` visible fields.
  */
-function hasMultipleFields<R, T extends Row>(
-  fields: Field<R, T>[],
+function hasMultipleFields<T extends Row>(
+  fields: RuntimeField<T>[],
   threshold: number = 1,
 ): boolean {
   let count = 0;

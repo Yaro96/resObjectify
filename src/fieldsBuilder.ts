@@ -1,28 +1,33 @@
 import type {
+  RuntimeCombinedField,
+  RuntimeField,
+  RuntimeGroupField,
+  RuntimeKeyField,
+  RuntimeSingleField,
+} from "../runtimeTypes";
+import type {
   CombinedFieldOptions,
+  DefaultString,
   Field,
   FieldsBuilder,
-  GroupField,
   GroupFieldOptions,
   KeyField,
   KeyFieldOptions,
-  LeafKeys,
   Row,
-  SimpleGroupField,
 } from "../types";
 
 /**
  * Creates a fluent builder for composing `Fields` definitions.
  */
 export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
-  const fields: Field<R, T>[] = [];
+  const fields: RuntimeField<T>[] = [];
 
   /**
    * Adds a key field using either shorthand or object form.
    */
-  const field: FieldsBuilder<R, T>["field"] = (
+  const field = ((
     field: KeyField<R, T>,
-    asOrOptions?: LeafKeys<R> | KeyFieldOptions,
+    asOrOptions?: PropertyKey | KeyFieldOptions,
     options?: KeyFieldOptions,
   ) => {
     const isOptions =
@@ -36,13 +41,13 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
     const entry = newField<R, T>(field, resolvedAs, resolvedOptions);
     fields.push(entry);
     return api;
-  };
+  }) as FieldsBuilder<R, T>["field"];
 
   /**
    * Adds a nested group and collects its child fields from a nested builder.
    */
-  const group: FieldsBuilder<R, T>["group"] = (
-    name: GroupField<R> | SimpleGroupField,
+  const group = ((
+    name: RuntimeGroupField,
     optionsOrBuild: GroupFieldOptions | ((builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>),
     build?: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>,
   ) => {
@@ -51,36 +56,32 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
     if (!buildFn) {
       throw new Error("Group builder requires a builder callback.");
     }
-    const nested = buildFn(fieldsBuilder<R, T>()).build();
-    const groupField = newGroup(name as SimpleGroupField, options);
-    fields.push([groupField as GroupField<R>, nested]);
+    const nested = buildFn(fieldsBuilder<R, T>()).build() as unknown as RuntimeField<T>[];
+    const groupField = newGroup(name, options);
+    fields.push([groupField, nested]);
     return api;
-  };
+  }) as FieldsBuilder<R, T>["group"];
 
   /**
    * Adds a combined key field (`keys`) definition.
    */
-  const combinedField: FieldsBuilder<R, T>["combinedField"] = (
-    keys,
-    as,
-    options?: CombinedFieldOptions,
-  ) => {
-    const entry: KeyField<R, T> = {
+  const combinedField = ((keys, as, options?: CombinedFieldOptions) => {
+    const entry: RuntimeCombinedField<T> = {
       keys: [...keys],
-      as,
+      as: as as DefaultString,
     };
     if (options) {
       Object.assign(entry, options);
     }
     fields.push(entry);
     return api;
-  };
+  }) as FieldsBuilder<R, T>["combinedField"];
 
   /**
    * Returns a snapshot of currently collected field definitions.
    */
   const build: FieldsBuilder<R, T>["build"] = () => {
-    return [...fields];
+    return [...fields] as unknown as Field<R, T>[];
   };
 
   const api: FieldsBuilder<R, T> = { field, combinedField, group, build };
@@ -94,17 +95,20 @@ function newField<R = Row, T = Row>(
   key: KeyField<R, T>,
   as?: PropertyKey,
   options?: KeyFieldOptions,
-): KeyField<R, T> {
+): RuntimeKeyField<T> {
   if (as === undefined && options === undefined) {
-    return key;
+    return key as RuntimeKeyField<T>;
   }
 
-  let entry: KeyField<R, T> = typeof key === "object" ? key : { key };
+  const entry: RuntimeSingleField<T> | RuntimeCombinedField<T> =
+    typeof key === "object"
+      ? ({ ...key } as RuntimeSingleField<T> | RuntimeCombinedField<T>)
+      : { key };
   if (as !== undefined) {
-    entry = { ...entry, as: as as LeafKeys<R> };
+    entry.as = as as DefaultString;
   }
   if (options !== undefined) {
-    entry = { ...entry, ...options };
+    Object.assign(entry, options);
   }
   return entry;
 }
@@ -112,12 +116,12 @@ function newField<R = Row, T = Row>(
 /**
  * Normalizes group shorthand into object form when options are provided.
  */
-function newGroup(groupField: SimpleGroupField, options?: GroupFieldOptions): GroupField {
+function newGroup(groupField: RuntimeGroupField, options?: GroupFieldOptions): RuntimeGroupField {
   if (!options) {
     return groupField;
   }
 
-  const entry: SimpleGroupField =
+  const entry: RuntimeGroupField =
     typeof groupField === "object" ? groupField : { name: groupField };
   return { ...entry, ...options };
 }

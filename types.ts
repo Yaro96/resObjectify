@@ -1,3 +1,5 @@
+import type { RuntimeGroupField } from "./runtimeTypes";
+
 /**
  * Generic object-like row shape used across the library.
  */
@@ -109,22 +111,36 @@ export type Result<T = unknown> = T[] | Record<PropertyKey, T>;
 /**
  * Defines a single source key with optional aliasing/flags.
  */
-export type SingleField<R = Row, T = Row> = {
-  key: KeyName<T>;
-  as?: LeafKeys<R>;
-  json?: boolean;
-  hide?: boolean;
-};
+export type SingleField<R = Row, T = Row> =
+  | {
+      key: KeyName<T>;
+      as?: LeafKeys<R>;
+      json?: boolean;
+      hide?: false;
+    }
+  | {
+      key: KeyName<T>;
+      as?: LeafKeys<R> | DefaultString;
+      json?: boolean;
+      hide: true;
+    };
 
 /**
  * Defines a composite key made from multiple source keys.
  */
-export type CombinedField<R = Row, T = Row> = {
-  keys: KeyName<T>[];
-  as: LeafKeys<R>;
-  separator?: string;
-  hide?: boolean;
-};
+export type CombinedField<R = Row, T = Row> =
+  | {
+      keys: KeyName<T>[];
+      as: LeafKeys<R>;
+      separator?: string;
+      hide?: false;
+    }
+  | {
+      keys: KeyName<T>[];
+      as: LeafKeys<R> | DefaultString;
+      separator?: string;
+      hide: true;
+    };
 
 /**
  * Selects a source key from a row and optional output behavior.
@@ -140,11 +156,6 @@ export type GroupFieldOptions = Omit<ObjectifyOptions, "separator">;
  * Describes a nested group in the output object.
  */
 export type GroupField<R = Row> = BranchKeys<R> | ({ name: BranchKeys<R> } & GroupFieldOptions);
-
-/**
- * Runtime-friendly group field variant used by builder internals.
- */
-export type SimpleGroupField = DefaultString | ({ name: DefaultString } & GroupFieldOptions);
 
 /**
  * Single field definition: direct key field or nested group tuple.
@@ -187,26 +198,34 @@ export type FieldsBuilder<R = Row, T = Row> = {
   field: {
     (field: KeyField<R, T>): FieldsBuilder<R, T>;
     (field: KeyName<T>, as?: LeafKeys<R>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
+    (
+      field: KeyName<T>,
+      as: DefaultString,
+      options: KeyFieldOptions & { hide: true },
+    ): FieldsBuilder<R, T>;
     (key: KeyName<T>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
   };
   /**
    * Adds a combined key field (`keys`) to the current field set.
    */
-  combinedField: (
-    keys: KeyName<T>[],
-    as: LeafKeys<R>,
-    options?: CombinedFieldOptions,
-  ) => FieldsBuilder<R, T>;
+  combinedField: {
+    (keys: KeyName<T>[], as: LeafKeys<R>, options?: CombinedFieldOptions): FieldsBuilder<R, T>;
+    (
+      keys: KeyName<T>[],
+      as: DefaultString,
+      options: CombinedFieldOptions & { hide: true },
+    ): FieldsBuilder<R, T>;
+  };
   /**
    * Adds a nested group with its own child field builder.
    */
   group: {
     (
-      name: GroupField<R> | SimpleGroupField,
+      name: GroupField<R> | RuntimeGroupField,
       fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>,
     ): FieldsBuilder<R, T>;
     (
-      name: GroupField<R> | SimpleGroupField,
+      name: GroupField<R> | RuntimeGroupField,
       options: GroupFieldOptions,
       fields: (builder: FieldsBuilder<R, T>) => FieldsBuilder<R, T>,
     ): FieldsBuilder<R, T>;

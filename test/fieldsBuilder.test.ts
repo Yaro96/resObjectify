@@ -187,6 +187,26 @@ describe("fieldsBuilder", () => {
     expect(fields2).toEqual([{ key: "id", hide: true }]);
   });
 
+  it("hide option respects the passed types", () => {
+    type Input = {
+      ID: number;
+      NAME: string;
+    };
+
+    type Result = {
+      id: number;
+      name: string;
+    };
+    const fields2 = fieldsBuilder<Result, Input>()
+      .field("ID", "asd", { hide: true })
+      .field("NAME", "name", { hide: false })
+      .build();
+    expect(fields2).toEqual([
+      { key: "ID", as: "asd", hide: true },
+      { key: "NAME", as: "name", hide: false },
+    ]);
+  });
+
   it("builds a hidden field via object form", () => {
     const fields2 = fieldsBuilder().field({ key: "id", hide: true }).build();
     expect(fields2).toEqual([{ key: "id", hide: true }]);
