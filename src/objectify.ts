@@ -1,5 +1,6 @@
 import type {
   Field,
+  JsonOption,
   KeyName,
   ObjectifyOptions,
   Prettify,
@@ -427,15 +428,42 @@ function getFieldValue<T extends Row>(
   }
 
   if ("json" in field && field.json) {
-    try {
-      return JSON.parse(row[key] as string);
-    } catch (error) {
-      console.error(`"${row[key]}" is not a valid JSON`, error);
-      return null;
-    }
+    const value = parseJsonValue(row[key] as string);
+    return extractJsonValue(value, field.json);
   }
 
   return row[key];
+}
+
+/**
+ * Parses a raw value as JSON and keeps parse errors non-throwing.
+ */
+function parseJsonValue(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    console.error(`"${raw}" is not a valid JSON`, error);
+    return null;
+  }
+}
+
+/**
+ * Extracts a nested value from parsed JSON using path segments.
+ */
+function extractJsonValue(value: unknown, json: JsonOption): unknown {
+  if (typeof json === "boolean" || value == null || json.length === 0) {
+    return value;
+  }
+
+  let current: unknown = value;
+  for (const segment of json) {
+    if (current == null || typeof current !== "object") {
+      return undefined;
+    }
+    current = (current as Record<PropertyKey, unknown>)?.[segment];
+  }
+
+  return current;
 }
 
 /**

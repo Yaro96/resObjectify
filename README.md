@@ -179,19 +179,26 @@ These overrides apply at that nested level and cascade to descendants unless ove
 `fieldsBuilder` is a fluent helper to build the same `Field[]` structure without manually writing nested arrays.
 
 How it works:
-#### Fields
+
+### Fields
+
 - `field("key")` adds a key field.
 - `field("key", "alias")` adds a renamed key field.
 - `field("key", { json?, hide? })` adds options without alias.
 - `field("key", "alias", { json?, hide? })` combines alias + options.
-#### Combined Fields
+
+### Combined Fields
+
 - `combinedField(["k1", "k2"], "alias")` adds a combined key field.
 - `combinedField(["k1", "k2"], "alias", { separator?, hide? })` adds a combined key field with options.
-#### Groups
+
+### Groups
+
 - `group(name, callback)` starts a nested level.
 - `group(name, { object?, allowNulls?, flattenSingleField? }, callback)` overrides output mode for that group.
 
-#### Build
+### Build
+
 - `build()` returns the final `Field[]` tuple you pass to `objectify`.
 
 ```ts
@@ -234,6 +241,7 @@ const built = fieldsBuilder()
   ],
 ];
 ```
+
 ## Combined Fields
 
 Combined fields let you build one value from multiple source keys:
@@ -292,8 +300,6 @@ const result = objectify(rows, fields, { object: true });
   },
 }
 ```
-
-
 
 ## Grouping Without A Root Key
 
@@ -426,7 +432,10 @@ const nested = objectify(rows, fields, { flattenSingleField: false });
 
 ## JSON Parsing
 
-Use `json: true` to parse JSON text values.
+Use `json` to parse JSON text values:
+
+- `json: true` parses and returns the full JSON value
+- `json: [path...]` parses and returns a nested value by path
 
 ```ts
 type MetaRow = { order_id: number; item_meta: string | null };
@@ -453,6 +462,40 @@ const parsed = objectify<MetaResult, MetaRow>(metaRows, metaFields);
 ```
 
 With `json: true`, invalid JSON values are converted to `null` and a parsing error is logged.
+
+Path extraction example:
+
+```ts
+type PathRow = { order_id: number; item_meta: string };
+
+const pathRows: PathRow[] = [
+  { order_id: 101, item_meta: '[{"data":{"warehouse":"A1"}}]' },
+  { order_id: 102, item_meta: '[{"data":{}}]' },
+];
+
+const pathFields: Field[] = [
+  "order_id",
+  { key: "item_meta", as: "warehouse", json: [0, "data", "warehouse"] },
+];
+
+const extracted = objectify(pathRows, pathFields);
+```
+
+`extracted`:
+
+```ts
+[
+  { order_id: 101, warehouse: "A1" },
+  { order_id: 102, warehouse: undefined },
+];
+```
+
+Notes:
+
+- Numeric path segments are supported (for arrays), e.g. `[0, "data", "value"]`.
+- Missing path segments return `undefined`.
+- `json: []` returns the full parsed JSON value (same result shape as `json: true`).
+- `json: false` disables parsing and keeps the raw value.
 
 ## Hide Fields
 

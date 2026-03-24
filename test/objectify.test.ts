@@ -131,6 +131,67 @@ describe("objectify", () => {
       ]);
     });
 
+    it("extracts nested json value when json is a path", () => {
+      type JsonPathInput = {
+        id: number;
+        payload: string;
+      };
+
+      type JsonPathResult = {
+        id: number;
+        value: number | undefined;
+      };
+
+      const rows: JsonPathInput[] = [
+        { id: 1, payload: '[{"data":{"values":[0,42]}}]' },
+        { id: 2, payload: '[{"data":{}}]' },
+        { id: 3, payload: "" },
+        { id: 4, payload: "[]" },
+        { id: 5, payload: '[{"data":22}]' },
+      ];
+
+      const fields: Field<JsonPathResult, JsonPathInput>[] = [
+        "id",
+        { key: "payload", as: "value", json: [0, "data", "values", 1] },
+      ];
+
+      expect(objectify(rows, fields)).toEqual([
+        { id: 1, value: 42 },
+        { id: 2, value: undefined },
+        { id: 3, value: null },
+        { id: 4, value: undefined },
+        { id: 5, value: undefined },
+      ]);
+    });
+
+    it("returns undefined when path traversal reaches a parsed primitive", () => {
+      const rows = [
+        { id: 1, payload: '"abc"' },
+        { id: 2, payload: "22" },
+      ];
+
+      const fields: Field[] = ["id", { key: "payload", as: "value", json: [0] }];
+
+      expect(objectify(rows, fields)).toEqual([
+        { id: 1, value: undefined },
+        { id: 2, value: undefined },
+      ]);
+    });
+
+    it("parses json with empty path", () => {
+      const rows = [
+        { id: 1, payload: '{"data":{"value":42}}' },
+        { id: 2, payload: '{"data":{}}' },
+      ];
+
+      const fields: Field[] = ["id", { key: "payload", as: "value", json: [] }];
+
+      expect(objectify(rows, fields)).toEqual([
+        { id: 1, value: { data: { value: 42 } } },
+        { id: 2, value: { data: {} } },
+      ]);
+    });
+
     it("supports empty-string keys", () => {
       type EmptyKeyInput = {
         "": number;

@@ -257,6 +257,18 @@ describe("fieldsBuilder", () => {
     ]);
   });
 
+  it("builds a field with json path extraction", () => {
+    const fields2 = fieldsBuilder()
+      .field("meta", "meta", { json: ["tier"] })
+      .build();
+    expect(fields2).toEqual([{ key: "meta", as: "meta", json: ["tier"] }]);
+  });
+
+  it("treats empty object as shorthand options", () => {
+    const fields2 = fieldsBuilder().field("id", {}).build();
+    expect(fields2).toEqual([{ key: "id" }]);
+  });
+
   it("keeps empty-string alias values", () => {
     const fields2 = fieldsBuilder().field("id", "").build();
     expect(fields2).toEqual([{ key: "id", as: "" }]);

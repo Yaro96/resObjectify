@@ -107,6 +107,16 @@ export type Prettify<T> = {
 export type Result<T = unknown> = T[] | Record<PropertyKey, T>;
 
 /**
+ * Path segments used to extract a nested value from parsed JSON.
+ */
+export type JsonPath = readonly PropertyKey[];
+
+/**
+ * JSON parsing option: full parse (`true`) or nested path extraction.
+ */
+export type JsonOption = boolean | JsonPath;
+
+/**
  * Defines a single source key with optional aliasing/flags.
  */
 export type SingleField<R = Row, T = Row> =
@@ -119,13 +129,13 @@ export type SingleField<R = Row, T = Row> =
   | {
       key: KeyName<T>;
       as?: LeafKeys<R> | DefaultString;
-      json: true;
+      json: true | JsonPath;
       hide?: false;
     }
   | {
       key: KeyName<T>;
       as?: LeafKeys<R> | DefaultString;
-      json?: boolean;
+      json?: JsonOption;
       hide: true;
     };
 
@@ -170,7 +180,7 @@ export type Field<R = Row, T = Row> = KeyField<R, T> | [GroupField<R>, Field<R, 
  * Extra options when defining a key field.
  */
 export type KeyFieldOptions = {
-  json?: boolean;
+  json?: JsonOption;
   hide?: boolean;
 };
 
@@ -205,7 +215,7 @@ export type FieldsBuilder<R = Row, T = Row> = {
     (
       field: KeyName<T>,
       as: LeafKeys<R> | DefaultString,
-      options: KeyFieldOptions & { json: true; hide?: false },
+      options: KeyFieldOptions & { json: true | JsonPath; hide?: false },
     ): FieldsBuilder<R, T>;
     (
       field: KeyName<T>,
@@ -259,7 +269,7 @@ export type RuntimeGroupField = DefaultString | ({ name: DefaultString } & Group
 export type RuntimeSingleField<T = Row> = {
   key: KeyName<T>;
   as?: DefaultString;
-  json?: boolean;
+  json?: JsonOption;
   hide?: boolean;
 };
 
