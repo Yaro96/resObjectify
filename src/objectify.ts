@@ -1,5 +1,14 @@
-import type { RuntimeField, RuntimeGroupField, RuntimeKeyField } from "../runtimeTypes";
-import type { Field, KeyName, ObjectifyOptions, Prettify, Result, Row } from "../types";
+import type {
+  Field,
+  KeyName,
+  ObjectifyOptions,
+  Prettify,
+  Result,
+  Row,
+  RuntimeField,
+  RuntimeGroupField,
+  RuntimeKeyField,
+} from "../types";
 
 const DEFAULT_OPTIONS: Required<ObjectifyOptions> = {
   object: false,

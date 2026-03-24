@@ -62,8 +62,10 @@ const fields: Field<ResultObject, Input>[] = [
 
 describe("objectify", () => {
   it("handles empty data", () => {
-    expect(objectify([], fields)).toEqual([]);
-    expect(objectify([], fields, { object: true })).toEqual({});
+    expect(objectify([], ["name"])).toEqual([]);
+    expect(objectify([], ["name"], { object: true })).toEqual([]);
+    expect(objectify([], ["name"], { object: true, flattenSingleField: false })).toEqual({});
+    expect(objectify([], ["id", "name"], { object: true })).toEqual({});
   });
 
   it("handles empty fields", () => {
@@ -96,9 +98,12 @@ describe("objectify", () => {
         } | null;
       };
 
-      const fields: Field<ResultJson, InputJson>[] = ["id", { key: "payload", json: true }];
+      const fields: Field<ResultJson, InputJson>[] = [
+        "id",
+        { key: "payload", as: "payload", json: true },
+      ];
 
-      expect(objectify(arr, fields)).toEqual([
+      expect(objectify<ResultJson, InputJson>(arr, fields)).toEqual([
         { id: 1, payload: { value: 42 } },
         { id: 2, payload: null },
       ]);

@@ -1,5 +1,3 @@
-import type { RuntimeGroupField } from "./runtimeTypes";
-
 /**
  * Generic object-like row shape used across the library.
  */
@@ -115,7 +113,13 @@ export type SingleField<R = Row, T = Row> =
   | {
       key: KeyName<T>;
       as?: LeafKeys<R>;
-      json?: boolean;
+      json?: false;
+      hide?: false;
+    }
+  | {
+      key: KeyName<T>;
+      as?: LeafKeys<R> | DefaultString;
+      json: true;
       hide?: false;
     }
   | {
@@ -200,6 +204,11 @@ export type FieldsBuilder<R = Row, T = Row> = {
     (field: KeyName<T>, as?: LeafKeys<R>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
     (
       field: KeyName<T>,
+      as: LeafKeys<R> | DefaultString,
+      options: KeyFieldOptions & { json: true; hide?: false },
+    ): FieldsBuilder<R, T>;
+    (
+      field: KeyName<T>,
       as: DefaultString,
       options: KeyFieldOptions & { hide: true },
     ): FieldsBuilder<R, T>;
@@ -235,3 +244,41 @@ export type FieldsBuilder<R = Row, T = Row> = {
    */
   build(): Field<R, T>[];
 };
+
+/**
+ * Runtime-friendly group field variant used by implementation internals.
+ */
+export type RuntimeGroupField = DefaultString | ({ name: DefaultString } & GroupFieldOptions);
+
+/**
+ * Lightweight runtime variant of a single key field.
+ *
+ * Internal-only: avoids propagating recursive `LeafKeys` inference into
+ * implementation signatures that do not need editor-facing autocomplete.
+ */
+export type RuntimeSingleField<T = Row> = {
+  key: KeyName<T>;
+  as?: DefaultString;
+  json?: boolean;
+  hide?: boolean;
+};
+
+/**
+ * Lightweight runtime variant of a combined key field.
+ */
+export type RuntimeCombinedField<T = Row> = {
+  keys: KeyName<T>[];
+  as: DefaultString;
+  separator?: string;
+  hide?: boolean;
+};
+
+/**
+ * Lightweight runtime key field (string shorthand or object forms).
+ */
+export type RuntimeKeyField<T = Row> = KeyName<T> | RuntimeSingleField<T> | RuntimeCombinedField<T>;
+
+/**
+ * Lightweight runtime field tree used by implementation internals.
+ */
+export type RuntimeField<T = Row> = RuntimeKeyField<T> | [RuntimeGroupField, RuntimeField<T>[]];

@@ -1,11 +1,4 @@
 import type {
-  RuntimeCombinedField,
-  RuntimeField,
-  RuntimeGroupField,
-  RuntimeKeyField,
-  RuntimeSingleField,
-} from "../runtimeTypes";
-import type {
   CombinedFieldOptions,
   DefaultString,
   Field,
@@ -14,6 +7,11 @@ import type {
   KeyField,
   KeyFieldOptions,
   Row,
+  RuntimeCombinedField,
+  RuntimeField,
+  RuntimeGroupField,
+  RuntimeKeyField,
+  RuntimeSingleField,
 } from "../types";
 
 /**
