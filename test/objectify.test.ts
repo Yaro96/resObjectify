@@ -178,6 +178,191 @@ describe("objectify", () => {
       ]);
     });
 
+    it("handles alias path variants", () => {
+      // Deep path + shared prefix + hidden path + combined field path.
+      const rows = [
+        { id: 1, a: 1, b: 2, c: 3, brand: "Acme", model: "X1", secret: "s" },
+        { id: 2, a: 4, b: 5, c: 6, brand: "Beta", model: "Y2", secret: "x" },
+      ];
+      const fields: Field[] = [
+        { key: "id", as: ["meta", "info", "id"] },
+        { key: "a", as: ["group", "a"] },
+        { key: "b", as: ["group", "b"] },
+        { key: "c", as: ["group", "nested", "c"] },
+        { keys: ["brand", "model"], as: ["labels", "brandModel"], separator: "-" },
+        { key: "secret", as: ["meta", "hidden"], hide: true },
+      ];
+
+      expect(objectify(rows, fields)).toEqual([
+        {
+          meta: { info: { id: 1 } },
+          group: { a: 1, b: 2, nested: { c: 3 } },
+          labels: { brandModel: "Acme-X1" },
+        },
+        {
+          meta: { info: { id: 2 } },
+          group: { a: 4, b: 5, nested: { c: 6 } },
+          labels: { brandModel: "Beta-Y2" },
+        },
+      ]);
+    });
+
+    it("handles alias path with json and flattenSingleField", () => {
+      const rows = [
+        { id: 1, payload: '{"v":42}' },
+        { id: 2, payload: '{"v":7}' },
+      ];
+
+      // json parsing writes into nested alias path.
+      expect(
+        objectify(rows, ["id", { key: "payload", as: ["meta", "parsed"], json: true }]),
+      ).toEqual([
+        { id: 1, meta: { parsed: { v: 42 } } },
+        { id: 2, meta: { parsed: { v: 7 } } },
+      ]);
+
+      // flattenSingleField should follow the nested path when the only visible field uses one.
+      expect(
+        objectify(rows, [
+          { key: "id", hide: true },
+          { key: "payload", as: ["meta", "parsed"], json: ["v"] },
+        ]),
+      ).toEqual([42, 7]);
+    });
+
+    it("supports nested output aliases via as path", () => {
+      const rows = [
+        {
+          id: 1,
+          hover: 1109,
+          scroll: 11042,
+          view: 1307749,
+          click: 3258,
+          totalInteractions: 15409,
+          uniqueCount: 917898,
+          uniqueUserWithInteractions: 11584,
+        },
+      ];
+
+      type Result = {
+        id: number;
+        events: {
+          Hover: number;
+          Scroll: number;
+          View: number;
+          Click: number;
+        };
+        totalInteractions: number;
+        uniqueCount: number;
+        uniqueUserWithInteractions: number;
+      };
+
+      const fields: Field<Result, (typeof rows)[number]>[] = [
+        { key: "id", hide: true },
+        { key: "hover", as: ["events", "Hover"] },
+        { key: "scroll", as: ["events", "Scroll"] },
+        { key: "view", as: ["events", "View"] },
+        { key: "click", as: ["events", "Click"] },
+        "totalInteractions",
+        "uniqueCount",
+        "uniqueUserWithInteractions",
+      ];
+
+      expect(objectify<Result>(rows, fields)).toEqual([
+        {
+          events: {
+            Hover: 1109,
+            Scroll: 11042,
+            View: 1307749,
+            Click: 3258,
+          },
+          totalInteractions: 15409,
+          uniqueCount: 917898,
+          uniqueUserWithInteractions: 11584,
+        },
+      ]);
+    });
+
+    it("handles alias path in various output modes", () => {
+      // Alias path inside a nested group + single-segment alias.
+      expect(
+        objectify(
+          [
+            { id: 1, name: "a", qty: 2 },
+            { id: 1, name: "b", qty: 3 },
+          ],
+          [
+            "id",
+            [
+              "items",
+              [
+                { key: "name", as: ["info", "label"] },
+                { key: "qty", as: ["info", "count"] },
+              ],
+            ],
+          ],
+        ),
+      ).toEqual([
+        {
+          id: 1,
+          items: [{ info: { label: "a", count: 2 } }, { info: { label: "b", count: 3 } }],
+        },
+      ]);
+
+      // Object mode: hidden key is the map key; alias path nests inside each entry.
+      expect(
+        objectify(
+          [
+            { id: 1, a: 10 },
+            { id: 2, a: 20 },
+          ],
+          [
+            { key: "id", hide: true },
+            { key: "a", as: ["meta", "value"] },
+          ],
+          { object: true },
+        ),
+      ).toEqual({
+        1: { meta: { value: 10 } },
+        2: { meta: { value: 20 } },
+      });
+
+      // Single-segment path behaves like a plain alias.
+      expect(objectify([{ id: 1, a: 7 }], ["id", { key: "a", as: ["value"] }])).toEqual([
+        { id: 1, value: 7 },
+      ]);
+    });
+
+    it("handles alias path edge cases", () => {
+      // Alias path collision with a sibling plain key — last writer wins.
+      expect(
+        objectify(
+          [{ id: 1, events: "raw", hover: 1 }],
+          ["id", "events", { key: "hover", as: ["events", "Hover"] }],
+        ),
+      ).toEqual([{ id: 1, events: { Hover: 1 } }]);
+
+      // Empty alias path should be treated as a plain key.
+      expect(
+        objectify(
+          [{ id: 1, events: "raw", hover: 1 }],
+          ["id", "events", { key: "hover", as: [] as unknown as string }],
+        ),
+      ).toEqual([{ id: 1, events: "raw", hover: 1 }]);
+
+      // Shared prefix across single and combined fields merges into one nested object.
+      expect(
+        objectify(
+          [{ id: 1, brand: "Acme", model: "X1", count: 5 }],
+          [
+            "id",
+            { keys: ["brand", "model"], as: ["labels", "brandModel"], separator: "-" },
+            { key: "count", as: ["labels", "count"] },
+          ],
+        ),
+      ).toEqual([{ id: 1, labels: { brandModel: "Acme-X1", count: 5 } }]);
+    });
+
     it("parses json with empty path", () => {
       const rows = [
         { id: 1, payload: '{"data":{"value":42}}' },

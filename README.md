@@ -184,6 +184,7 @@ How it works:
 
 - `field("key")` adds a key field.
 - `field("key", "alias")` adds a renamed key field.
+- `field("key", ["nested", "alias"])` places the value into a nested output path.
 - `field("key", { json?, hide? })` adds options without alias.
 - `field("key", "alias", { json?, hide? })` combines alias + options.
 
@@ -496,6 +497,53 @@ Notes:
 - Missing path segments return `undefined`.
 - `json: []` returns the full parsed JSON value (same result shape as `json: true`).
 - `json: false` disables parsing and keeps the raw value.
+
+## Nested Aliases
+
+`as` can be an array of path segments to place the value into a nested output object. Works on `field`, object-form `{ key, as }`, and `combinedField`.
+
+```ts
+type Row = {
+  hover: number;
+  scroll: number;
+  total: number;
+  brand: string;
+  model: string;
+};
+
+const rows: Row[] = [
+  { hover: 10, scroll: 20, total: 30, brand: "Acme", model: "X1" },
+];
+
+const fields: Field[] = [
+  { key: "hover", as: ["events", "Hover"] },
+  { key: "scroll", as: ["events", "Scroll"] },
+  "total",
+  { keys: ["brand", "model"], as: ["labels", "brandModel"], separator: "-" },
+];
+
+const result = objectify(rows, fields);
+```
+
+`result`:
+
+```ts
+[
+  {
+    events: { Hover: 10, Scroll: 20 },
+    total: 30,
+    labels: { brandModel: "Acme-X1" },
+  },
+];
+```
+
+Notes:
+
+- Missing intermediate objects are created automatically.
+- Shared path prefixes merge into the same nested object.
+- Single-segment alias (`as: ["value"]`) behaves like `as: "value"`.
+- Empty alias (`as: []`) falls back to using the source key as the output name.
+- Combines with `json` (parsed value placed at the nested alias) and `hide` (field omitted from output).
 
 ## Hide Fields
 

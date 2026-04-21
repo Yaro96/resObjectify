@@ -117,24 +117,39 @@ export type JsonPath = readonly PropertyKey[];
 export type JsonOption = boolean | JsonPath;
 
 /**
+ * Loose alias shape used when the result type is unknown or `Row`.
+ * Avoids recursive `LeafKeys`/`BranchKeys` inference at call sites.
+ */
+export type RuntimeAlias = DefaultString | DefaultString[];
+
+/**
+ * Alias path segments used to place a field into a nested object.
+ * Collapses to `RuntimeAlias` when `R` is the default `Row`/`unknown`,
+ * keeping strict key inference only when a concrete result type is provided.
+ */
+export type Alias<R = Row> = [Row] extends [R]
+  ? RuntimeAlias
+  : LeafKeys<R> | [...BranchKeys<R>[], LeafKeys<R>];
+
+/**
  * Defines a single source key with optional aliasing/flags.
  */
 export type SingleField<R = Row, T = Row> =
   | {
       key: KeyName<T>;
-      as?: LeafKeys<R>;
+      as?: Alias<R>;
       json?: false;
       hide?: false;
     }
   | {
       key: KeyName<T>;
-      as?: LeafKeys<R> | DefaultString;
+      as?: Alias<R> | DefaultString;
       json: true | JsonPath;
       hide?: false;
     }
   | {
       key: KeyName<T>;
-      as?: LeafKeys<R> | DefaultString;
+      as?: Alias<R> | DefaultString;
       json?: JsonOption;
       hide: true;
     };
@@ -145,13 +160,13 @@ export type SingleField<R = Row, T = Row> =
 export type CombinedField<R = Row, T = Row> =
   | {
       keys: KeyName<T>[];
-      as: LeafKeys<R>;
+      as: Alias<R>;
       separator?: string;
       hide?: false;
     }
   | {
       keys: KeyName<T>[];
-      as: LeafKeys<R> | DefaultString;
+      as: Alias<R> | DefaultString;
       separator?: string;
       hide: true;
     };
@@ -211,10 +226,10 @@ export type FieldsBuilder<R = Row, T = Row> = {
    */
   field: {
     (field: KeyField<R, T>): FieldsBuilder<R, T>;
-    (field: KeyName<T>, as?: LeafKeys<R>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
+    (field: KeyName<T>, as?: Alias<R>, options?: KeyFieldOptions): FieldsBuilder<R, T>;
     (
       field: KeyName<T>,
-      as: LeafKeys<R> | DefaultString,
+      as: Alias<R> | DefaultString,
       options: KeyFieldOptions & { json: true | JsonPath; hide?: false },
     ): FieldsBuilder<R, T>;
     (
@@ -228,7 +243,7 @@ export type FieldsBuilder<R = Row, T = Row> = {
    * Adds a combined key field (`keys`) to the current field set.
    */
   combinedField: {
-    (keys: KeyName<T>[], as: LeafKeys<R>, options?: CombinedFieldOptions): FieldsBuilder<R, T>;
+    (keys: KeyName<T>[], as: Alias<R>, options?: CombinedFieldOptions): FieldsBuilder<R, T>;
     (
       keys: KeyName<T>[],
       as: DefaultString,
@@ -268,7 +283,7 @@ export type RuntimeGroupField = DefaultString | ({ name: DefaultString } & Group
  */
 export type RuntimeSingleField<T = Row> = {
   key: KeyName<T>;
-  as?: DefaultString;
+  as?: DefaultString | DefaultString[];
   json?: JsonOption;
   hide?: boolean;
 };
@@ -278,7 +293,7 @@ export type RuntimeSingleField<T = Row> = {
  */
 export type RuntimeCombinedField<T = Row> = {
   keys: KeyName<T>[];
-  as: DefaultString;
+  as: DefaultString | DefaultString[];
   separator?: string;
   hide?: boolean;
 };

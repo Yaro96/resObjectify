@@ -25,10 +25,11 @@ export function fieldsBuilder<R = Row, T = Row>(): FieldsBuilder<R, T> {
    */
   const field = ((
     field: KeyField<R, T>,
-    asOrOptions?: PropertyKey | KeyFieldOptions,
+    asOrOptions?: PropertyKey | string[] | KeyFieldOptions,
     options?: KeyFieldOptions,
   ) => {
-    const isOptions = typeof asOrOptions === "object" && asOrOptions !== null;
+    const isOptions =
+      typeof asOrOptions === "object" && asOrOptions !== null && !Array.isArray(asOrOptions);
     const resolvedAs = isOptions ? undefined : (asOrOptions as PropertyKey);
     const resolvedOptions = isOptions ? asOrOptions : options;
 

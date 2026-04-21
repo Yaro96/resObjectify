@@ -153,7 +153,7 @@ function buildGroupedObject<T extends Row = Row>(
 
     const fieldName = getFieldName(field);
     if (fieldName !== undefined) {
-      groupedObject[fieldName] = getFieldValue(firstRow, field, options.separator);
+      setByPath(groupedObject, fieldName, getFieldValue(firstRow, field, options.separator));
     }
   }
 
@@ -184,7 +184,7 @@ function buildNestedGroupValue<R = unknown, T extends Row = Row>(
 function appendToResult<T extends Row = Row>(
   result: unknown[] | Record<PropertyKey, unknown>,
   groupedObject: Record<PropertyKey, unknown>,
-  keyName: PropertyKey | undefined,
+  keyName: PropertyKey | string[] | undefined,
   keyValue: PropertyKey,
   restFields: RuntimeField<T>[],
   options: Required<ObjectifyOptions>,
@@ -209,7 +209,7 @@ function appendToResult<T extends Row = Row>(
  * Returns whether the current group should be emitted or skipped.
  */
 function shouldIncludeGroup(
-  keyName: PropertyKey | undefined,
+  keyName: PropertyKey | string[] | undefined,
   keyValue: PropertyKey,
   allowNulls: boolean,
 ): boolean {
@@ -223,7 +223,7 @@ function shouldIncludeGroup(
 function appendToArrayResult<T extends Row = Row>(
   result: unknown[],
   groupedObject: Record<PropertyKey, unknown>,
-  keyName: PropertyKey | undefined,
+  keyName: PropertyKey | string[] | undefined,
   restFields: RuntimeField<T>[],
   rootIsHidden: boolean,
   options: Required<ObjectifyOptions>,
@@ -236,7 +236,7 @@ function appendToArrayResult<T extends Row = Row>(
  */
 function resolveArrayValue<T extends Row = Row>(
   groupedObject: Record<PropertyKey, unknown>,
-  keyName: PropertyKey | undefined,
+  keyName: PropertyKey | string[] | undefined,
   restFields: RuntimeField<T>[],
   rootIsHidden: boolean,
   { flattenSingleField }: Required<ObjectifyOptions>,
@@ -246,14 +246,14 @@ function resolveArrayValue<T extends Row = Row>(
   if (rootIsHidden) {
     if (flattenSingleField && !hasMultipleFields(restFields, 1)) {
       const singleKey = getFirstVisibleFieldName(restFields);
-      return singleKey !== undefined ? groupedObject[singleKey] : groupedObject;
+      return singleKey !== undefined ? getByPath(groupedObject, singleKey) : groupedObject;
     }
     return groupedObject;
   }
 
   const hasNestedFields = hasMultipleFields(restFields, 0);
   if (flattenSingleField) {
-    return hasNestedFields ? groupedObject : groupedObject[keyName];
+    return hasNestedFields ? groupedObject : getByPath(groupedObject, keyName);
   }
   return groupedObject;
 }
@@ -263,7 +263,7 @@ function resolveArrayValue<T extends Row = Row>(
  */
 function getFirstVisibleFieldName<T extends Row>(
   fields: RuntimeField<T>[],
-): PropertyKey | undefined {
+): PropertyKey | string[] | undefined {
   for (const field of fields) {
     if (Array.isArray(field)) {
       return undefined;
@@ -284,7 +284,7 @@ function getFirstVisibleFieldName<T extends Row>(
 function appendToObjectResult(
   result: Record<PropertyKey, unknown>,
   obj: Record<PropertyKey, unknown>,
-  keyName: PropertyKey | null | undefined,
+  keyName: PropertyKey | string[] | undefined,
   keyValue: PropertyKey,
 ): void {
   if (keyName === undefined) {
@@ -380,7 +380,7 @@ function getSeparator<T extends Row>(
 /**
  * Resolves the output property name for a key field.
  */
-function getFieldName<T extends Row>(field: RuntimeField<T>): PropertyKey | undefined {
+function getFieldName<T extends Row>(field: RuntimeField<T>): PropertyKey | string[] | undefined {
   if (Array.isArray(field)) {
     return undefined;
   }
@@ -388,7 +388,13 @@ function getFieldName<T extends Row>(field: RuntimeField<T>): PropertyKey | unde
     return field;
   }
 
-  const namedField = field as { as?: PropertyKey; key?: PropertyKey };
+  const namedField = field as { as?: PropertyKey | string[]; key?: PropertyKey };
+
+  // Treat an empty alias array as "no alias" and fall back to the source key.
+  if (Array.isArray(namedField.as) && namedField.as.length === 0) {
+    return namedField.key;
+  }
+
   return namedField.as ?? namedField.key;
 }
 
@@ -433,6 +439,47 @@ function getFieldValue<T extends Row>(
   }
 
   return row[key];
+}
+
+/**
+ * Writes a value into an object by key or nested alias path.
+ */
+function setByPath(
+  obj: Record<PropertyKey, unknown>,
+  name: PropertyKey | readonly string[],
+  value: unknown,
+): void {
+  if (!Array.isArray(name)) {
+    obj[name as PropertyKey] = value;
+    return;
+  }
+
+  const parentKeys = name.slice(0, -1);
+  const leafKey = name[name.length - 1];
+  // Walk down to the parent, creating nested objects along the way.
+  let parent = obj;
+  for (const key of parentKeys) {
+    if (parent[key] == null || typeof parent[key] !== "object") parent[key] = {};
+    parent = parent[key] as Record<PropertyKey, unknown>;
+  }
+
+  parent[leafKey] = value;
+}
+
+/**
+ * Reads a value from an object by key or nested alias path.
+ */
+function getByPath(
+  obj: Record<PropertyKey, unknown>,
+  name: PropertyKey | readonly string[],
+): unknown {
+  if (!Array.isArray(name)) return obj[name as PropertyKey];
+  let cur: unknown = obj;
+  for (const seg of name) {
+    if (cur == null || typeof cur !== "object") return undefined;
+    cur = (cur as Record<PropertyKey, unknown>)[seg];
+  }
+  return cur;
 }
 
 /**

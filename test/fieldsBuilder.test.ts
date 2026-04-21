@@ -269,6 +269,25 @@ describe("fieldsBuilder", () => {
     expect(fields2).toEqual([{ key: "id" }]);
   });
 
+  it("treats alias array as nested output path", () => {
+    const fields2 = fieldsBuilder().field("meta", ["events", "Hover"]).build();
+    expect(fields2).toEqual([{ key: "meta", as: ["events", "Hover"] }]);
+  });
+
+  it("supports alias path with options and combined fields", () => {
+    const fields2 = fieldsBuilder()
+      .field("meta", ["events", "Hover"], { hide: true })
+      .field("payload", ["meta", "parsed"], { json: true })
+      .combinedField(["brand", "model"], ["labels", "brandModel"], { separator: "-" })
+      .build();
+
+    expect(fields2).toEqual([
+      { key: "meta", as: ["events", "Hover"], hide: true },
+      { key: "payload", as: ["meta", "parsed"], json: true },
+      { keys: ["brand", "model"], as: ["labels", "brandModel"], separator: "-" },
+    ]);
+  });
+
   it("keeps empty-string alias values", () => {
     const fields2 = fieldsBuilder().field("id", "").build();
     expect(fields2).toEqual([{ key: "id", as: "" }]);
